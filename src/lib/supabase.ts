@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS public.plaques (
   title TEXT NOT NULL,
   target_type TEXT NOT NULL CHECK (target_type IN ('google_review', 'whatsapp', 'instagram', 'menu', 'website', 'custom')),
   target_url TEXT NOT NULL,
+  qr_target_type TEXT DEFAULT 'custom',
+  qr_target_url TEXT, -- Link independente do QR Code (abre o link direto)
   is_active BOOLEAN DEFAULT true NOT NULL,
   is_locked BOOLEAN DEFAULT false NOT NULL,
   lock_reason TEXT,

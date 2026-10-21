@@ -45,6 +45,8 @@ export const INITIAL_PLAQUES: Plaque[] = [
     title: 'Totem Balcão Principal & Caixa',
     targetType: 'google_review',
     targetUrl: 'https://g.page/r/Cbistro-royal/review',
+    qrTargetType: 'google_review',
+    qrTargetUrl: 'https://g.page/r/Cbistro-royal/review',
     targetParams: {
       googlePlaceId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     },
@@ -63,6 +65,8 @@ export const INITIAL_PLAQUES: Plaque[] = [
     title: 'Displays de Mesa — Cardápio & Drinks',
     targetType: 'menu',
     targetUrl: 'https://cardapio.bistroroyal.com.br/carta-de-vinhos',
+    qrTargetType: 'instagram',
+    qrTargetUrl: 'https://instagram.com/bistroroyal',
     isActive: true,
     isLocked: false,
     totalNfcScans: 412,
@@ -78,6 +82,8 @@ export const INITIAL_PLAQUES: Plaque[] = [
     title: 'Placa Recepção — WhatsApp & Check-in',
     targetType: 'whatsapp',
     targetUrl: 'https://wa.me/5511976543210?text=Ol%C3%A1%21%20Gostaria%20de%20agendar%20minha%20aula%20experimental%20na%20FitPrime.',
+    qrTargetType: 'whatsapp',
+    qrTargetUrl: 'https://wa.me/5511976543210?text=Ol%C3%A1%21%20Gostaria%20de%20agendar%20minha%20aula%20experimental%20na%20FitPrime.',
     targetParams: {
       whatsappNumber: '5511976543210',
       whatsappMessage: 'Olá! Gostaria de agendar minha aula experimental na FitPrime.',
@@ -153,6 +159,8 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
           title: d.title,
           targetType: d.target_type,
           targetUrl: d.target_url,
+          qrTargetType: d.qr_target_type || d.target_type,
+          qrTargetUrl: d.qr_target_url || d.target_url,
           isActive: d.is_active,
           isLocked: d.is_locked,
           lockReason: d.lock_reason,
@@ -170,11 +178,13 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
   const users = getUsers();
 
-  // Populate clientName
+  // Populate clientName and ensure qrTargetUrl is set
   const enriched = allPlaques.map((p) => {
     const owner = users.find((u) => u.id === p.clientId);
     return {
       ...p,
+      qrTargetUrl: p.qrTargetUrl || p.targetUrl,
+      qrTargetType: p.qrTargetType || p.targetType,
       clientName: owner ? owner.companyName : p.clientName || 'Cliente GoldFlow',
     };
   });
@@ -241,6 +251,53 @@ export async function updatePlaqueDestination(
         .eq('id', plaqueId);
     } catch (e) {
       console.warn('Failed to sync plaque update to Supabase', e);
+    }
+  }
+
+  return updated;
+}
+
+export async function updatePlaqueQrDestination(
+  user: UserProfile,
+  plaqueId: string,
+  qrTargetUrl: string,
+  qrTargetType: Plaque['targetType'] = 'custom'
+): Promise<Plaque> {
+  const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
+  const index = allPlaques.findIndex((p) => p.id === plaqueId);
+  if (index === -1) throw new Error('Placa não encontrada');
+
+  const plaque = allPlaques[index];
+
+  // Security Check (RLS check):
+  if (user.role !== 'admin' && plaque.clientId !== user.id) {
+    throw new Error('Acesso negado: Você não tem permissão para alterar o QR Code desta placa.');
+  }
+
+  const updated: Plaque = {
+    ...plaque,
+    qrTargetUrl: qrTargetUrl.trim(),
+    qrTargetType,
+    updatedAt: new Date().toISOString(),
+  };
+
+  allPlaques[index] = updated;
+  saveStored(PLAQUES_STORAGE_KEY, allPlaques);
+
+  // Sync with Supabase if connected
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase
+        .from('plaques')
+        .update({
+          qr_target_url: updated.qrTargetUrl,
+          qr_target_type: updated.qrTargetType,
+          updated_at: updated.updatedAt,
+        })
+        .eq('id', plaqueId);
+    } catch (e) {
+      console.warn('Failed to sync plaque QR update to Supabase', e);
     }
   }
 
@@ -409,6 +466,8 @@ export async function createPlaque(
     title: string;
     targetType: Plaque['targetType'];
     targetUrl: string;
+    qrTargetUrl?: string;
+    qrTargetType?: Plaque['targetType'];
   }
 ): Promise<Plaque> {
   if (adminUser.role !== 'admin') {
@@ -425,6 +484,9 @@ export async function createPlaque(
   const users = getUsers();
   const owner = users.find((u) => u.id === data.clientId);
 
+  const qrUrl = data.qrTargetUrl?.trim() || data.targetUrl.trim();
+  const qrType = data.qrTargetType || data.targetType;
+
   const newPlaque: Plaque = {
     id: `plaque-${Date.now()}`,
     clientId: data.clientId,
@@ -433,6 +495,8 @@ export async function createPlaque(
     title: data.title,
     targetType: data.targetType,
     targetUrl: data.targetUrl,
+    qrTargetType: qrType,
+    qrTargetUrl: qrUrl,
     isActive: true,
     isLocked: false,
     totalNfcScans: 0,
@@ -453,6 +517,8 @@ export async function createPlaque(
         title: data.title,
         target_type: data.targetType,
         target_url: data.targetUrl,
+        qr_target_type: qrType,
+        qr_target_url: qrUrl,
         is_active: true,
         is_locked: false,
       });

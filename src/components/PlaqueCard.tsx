@@ -131,35 +131,77 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
           </div>
         </div>
 
-        {/* Destination Target Box */}
-        <div className="rounded-xl bg-[#0a0a0c] border border-[#27272a] p-3 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400 font-medium">Destino Atual da Placa:</span>
-            <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${badge.color}`}>
-              {badge.label}
-            </span>
+        {/* Independent Destination Targets Box */}
+        <div className="rounded-xl bg-[#0a0a0c] border border-[#27272a] p-3 flex flex-col gap-3">
+          {/* Channel 1: NFC Target */}
+          <div className="flex flex-col gap-1.5 pb-2.5 border-b border-[#1c1c20]">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-red-400 font-semibold text-[11px]">
+                <Radio className="w-3.5 h-3.5" />
+                <span>Destino NFC (Aproximação):</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${badge.color}`}>
+                {badge.label}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={plaque.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono text-zinc-300 hover:text-white truncate flex-1 flex items-center gap-1.5"
+                title={plaque.targetUrl}
+              >
+                <span className="truncate">{plaque.targetUrl}</span>
+                <ExternalLink className="w-3 h-3 shrink-0 text-zinc-500" />
+              </a>
+
+              <button
+                onClick={() => onEditDestination(plaque)}
+                disabled={plaque.isLocked && userRole !== 'admin'}
+                className="px-2.5 py-1 rounded bg-[#1f1f23] hover:bg-[#27272a] text-zinc-200 text-xs font-medium flex items-center gap-1 shrink-0 border border-[#27272a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Alterar destino do chip NFC"
+              >
+                <Edit3 className="w-3 h-3 text-red-400" />
+                <span>Trocar NFC</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <a
-              href={plaque.targetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-mono text-zinc-300 hover:text-white truncate flex-1 flex items-center gap-1.5"
-              title={plaque.targetUrl}
-            >
-              <span className="truncate">{plaque.targetUrl}</span>
-              <ExternalLink className="w-3 h-3 shrink-0 text-zinc-500" />
-            </a>
+          {/* Channel 2: QR Code Independent Target */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-[11px]">
+                <QrCode className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Destino do QR Code (Câmera):</span>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-medium text-emerald-300 bg-emerald-950/60 border border-emerald-800/60">
+                Abre Link Direto
+              </span>
+            </div>
 
-            <button
-              onClick={() => onEditDestination(plaque)}
-              disabled={plaque.isLocked && userRole !== 'admin'}
-              className="px-2.5 py-1 rounded bg-[#1f1f23] hover:bg-[#27272a] text-zinc-200 text-xs font-medium flex items-center gap-1 shrink-0 border border-[#27272a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Edit3 className="w-3 h-3 text-red-400" />
-              <span>Trocar</span>
-            </button>
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={plaque.qrTargetUrl || plaque.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono text-zinc-300 hover:text-white truncate flex-1 flex items-center gap-1.5"
+                title={plaque.qrTargetUrl || plaque.targetUrl}
+              >
+                <span className="truncate">{plaque.qrTargetUrl || plaque.targetUrl}</span>
+                <ExternalLink className="w-3 h-3 shrink-0 text-zinc-500" />
+              </a>
+
+              <button
+                onClick={() => onOpenQrStudio(plaque)}
+                className="px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/50 text-red-200 text-xs font-medium flex items-center gap-1 shrink-0 border border-red-900/50 transition-colors"
+                title="Alterar link do QR Code e baixar PNG/SVG"
+              >
+                <Edit3 className="w-3 h-3 text-red-400" />
+                <span>Gerenciar QR</span>
+              </button>
+            </div>
           </div>
         </div>
 

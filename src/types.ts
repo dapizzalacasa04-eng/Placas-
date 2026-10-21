@@ -25,7 +25,9 @@ export interface Plaque {
   slug: string;
   title: string;
   targetType: TargetType;
-  targetUrl: string;
+  targetUrl: string; // Destino do NFC
+  qrTargetType?: TargetType;
+  qrTargetUrl: string; // Destino independente do QR Code (abre o link direto)
   targetParams?: {
     whatsappNumber?: string;
     whatsappMessage?: string;

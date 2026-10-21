@@ -10,8 +10,14 @@ import {
   ExternalLink,
   Lock,
   Smartphone,
-  QrCode
+  QrCode,
+  Download,
+  Image as ImageIcon,
+  FileCode,
+  Save,
+  Link2
 } from 'lucide-react';
+import { downloadQRCodePNG, downloadQRCodeSVG } from './lib/qrCodeHelper';
 import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource } from './types';
 import { 
   getCurrentUser, 
@@ -19,6 +25,7 @@ import {
   setCurrentUser, 
   getPlaques, 
   updatePlaqueDestination, 
+  updatePlaqueQrDestination,
   togglePlaqueLock, 
   getRecentScans,
   createPlaque,
@@ -80,6 +87,12 @@ export default function App() {
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  // Quick Standalone QR Generator State
+  const [quickQrUrl, setQuickQrUrl] = useState('https://wa.me/5511999998888');
+  const [quickQrPlaqueId, setQuickQrPlaqueId] = useState('');
+  const [quickDownloadingPng, setQuickDownloadingPng] = useState(false);
+  const [quickDownloadingSvg, setQuickDownloadingSvg] = useState(false);
+
   // Refresh data
   const refreshData = useCallback(async (user: UserProfile) => {
     const loadedUsers = getUsers();
@@ -117,7 +130,65 @@ export default function App() {
   ) => {
     await updatePlaqueDestination(currentUser, plaqueId, targetType, targetUrl, targetParams);
     await refreshData(currentUser);
-    showToast('Destino da placa atualizado com sucesso!', 'success');
+    showToast('Destino do chip NFC atualizado com sucesso!', 'success');
+  };
+
+  // Edit independent QR Code destination
+  const handleSaveQrLink = async (plaqueId: string, newQrUrl: string) => {
+    await updatePlaqueQrDestination(currentUser, plaqueId, newQrUrl);
+    await refreshData(currentUser);
+    showToast('Link do QR Code salvo no banco de dados com sucesso!', 'success');
+  };
+
+  const handleDownloadQuickPng = async () => {
+    if (!quickQrUrl.trim()) {
+      showToast('Por favor, informe um link válido.', 'error');
+      return;
+    }
+    setQuickDownloadingPng(true);
+    try {
+      await downloadQRCodePNG(quickQrUrl.trim(), 'goldflow-qr-code-1024px', {
+        width: 1024,
+        errorCorrectionLevel: 'H',
+      });
+      showToast('QR Code PNG (1024px) baixado com sucesso!', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao baixar PNG.', 'error');
+    } finally {
+      setQuickDownloadingPng(false);
+    }
+  };
+
+  const handleDownloadQuickSvg = async () => {
+    if (!quickQrUrl.trim()) {
+      showToast('Por favor, informe um link válido.', 'error');
+      return;
+    }
+    setQuickDownloadingSvg(true);
+    try {
+      await downloadQRCodeSVG(quickQrUrl.trim(), 'goldflow-qr-code-vector', {
+        errorCorrectionLevel: 'H',
+      });
+      showToast('QR Code SVG vetorial baixado com sucesso!', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao exportar SVG.', 'error');
+    } finally {
+      setQuickDownloadingSvg(false);
+    }
+  };
+
+  const handleSaveQuickToPlaque = async () => {
+    if (!quickQrPlaqueId) {
+      showToast('Selecione uma placa para vincular este link de QR Code.', 'error');
+      return;
+    }
+    if (!quickQrUrl.trim()) {
+      showToast('Por favor, informe um link válido.', 'error');
+      return;
+    }
+    await handleSaveQrLink(quickQrPlaqueId, quickQrUrl.trim());
   };
 
   // Toggle Remote Lock
@@ -308,46 +379,218 @@ export default function App() {
 
         {/* TAB 2: QR CODE STUDIO */}
         {activeTab === 'qr_studio' && (
-          <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-6 pb-24 flex flex-col gap-5">
+          <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-6 pb-24 flex flex-col gap-6">
             <div>
               <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">
-                Exportação Gráfica Profissional
+                Gerador de QR Code Direto & Independente
               </span>
               <h1 className="font-heading text-xl sm:text-2xl font-bold text-white">
-                Central de QR Codes para Impressão
+                Central de QR Codes
               </h1>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Gere arquivos em alta definição (PNG 1024px) e vetores (SVG) prontos para corte a laser
+                Cole qualquer link para gerar QR Codes diretos que abrem imediatamente na câmera sem passar pelo app GoldFlow
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {plaques.map((plaque) => (
-                <div
-                  key={plaque.id}
-                  className="rounded-2xl bg-[#121214] border border-[#27272a] p-4 flex flex-col justify-between gap-3"
-                >
+            {/* Quick Generator Box (Paste any link on the fly) */}
+            <div className="rounded-2xl bg-[#121214] border border-[#27272a] p-4 sm:p-5 flex flex-col gap-4 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-red-600/10 text-red-500 border border-red-500/20">
+                    <QrCode className="w-5 h-5" />
+                  </div>
                   <div>
-                    <h3 className="font-heading font-bold text-white text-sm truncate">
-                      {plaque.title}
+                    <h3 className="font-heading font-bold text-white text-sm">
+                      Gerador Rápido: Cole Qualquer Link
                     </h3>
-                    <div className="font-mono text-xs text-zinc-400 mt-0.5">
-                      /r/{plaque.slug}
-                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Gere e baixe em PNG 1024px e SVG para WhatsApp, Instagram, Google, cardápios ou sites
+                    </p>
                   </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 self-start sm:self-auto">
+                  Abre Diretamente no Celular
+                </span>
+              </div>
 
-                  <div className="p-3 bg-white rounded-xl aspect-square flex items-center justify-center max-w-[140px] mx-auto w-full shadow-md">
-                    <QrCode className="w-20 h-20 text-black" />
-                  </div>
+              {/* URL Input */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center rounded-xl bg-[#0a0a0c] border border-[#27272a] px-3 focus-within:border-red-500 transition-colors">
+                  <Link2 className="w-4 h-4 text-zinc-400 mr-2 shrink-0" />
+                  <input
+                    type="text"
+                    value={quickQrUrl}
+                    onChange={(e) => setQuickQrUrl(e.target.value)}
+                    placeholder="https://wa.me/5511... ou https://instagram.com/... ou https://g.page/..."
+                    className="w-full py-2.5 bg-transparent text-xs sm:text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none"
+                  />
+                  {quickQrUrl.trim() && (
+                    <a
+                      href={quickQrUrl.startsWith('http') ? quickQrUrl : `https://${quickQrUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 font-medium px-2 py-1 rounded bg-[#18181b] border border-[#27272a] shrink-0"
+                      title="Testar link em nova aba"
+                    >
+                      <span>Testar</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
 
+                {/* Preset suggestions */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-zinc-500 font-medium">Exemplos:</span>
                   <button
-                    onClick={() => setQrStudioPlaque(plaque)}
-                    className="w-full py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-red-950/30"
+                    type="button"
+                    onClick={() => setQuickQrUrl('https://wa.me/5511999998888?text=Olá!%20Vim%20pelo%20QR%20Code.')}
+                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-emerald-400 border border-[#27272a] text-[10px] font-medium"
                   >
-                    <span>Abrir & Baixar (PNG / SVG)</span>
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickQrUrl('https://instagram.com/sualojaoficial')}
+                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-pink-400 border border-[#27272a] text-[10px] font-medium"
+                  >
+                    Instagram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickQrUrl('https://g.page/r/Cbistro-royal/review')}
+                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-amber-400 border border-[#27272a] text-[10px] font-medium"
+                  >
+                    Google Avaliações
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickQrUrl('https://cardapio.sualoja.com.br')}
+                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-sky-400 border border-[#27272a] text-[10px] font-medium"
+                  >
+                    Cardápio / Site
                   </button>
                 </div>
-              ))}
+              </div>
+
+              {/* Action Buttons: Download and Plaque Linking */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[#1f1f23]">
+                {/* Plaque link selector */}
+                {plaques.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={quickQrPlaqueId}
+                      onChange={(e) => setQuickQrPlaqueId(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-xs text-white focus:outline-none focus:border-red-500"
+                    >
+                      <option value="">Selecione uma Placa para Salvar...</option>
+                      {plaques.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} (/r/{p.slug})
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveQuickToPlaque}
+                      disabled={!quickQrPlaqueId}
+                      className="px-3 py-1.5 rounded-lg bg-[#1c1c20] hover:bg-[#27272a] text-zinc-200 text-xs font-medium border border-[#27272a] disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                    >
+                      <Save className="w-3.5 h-3.5 text-red-400" />
+                      <span>Salvar no Banco</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Download buttons */}
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={handleDownloadQuickPng}
+                    disabled={quickDownloadingPng}
+                    className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-red-950/40 transition-all disabled:opacity-50"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>{quickDownloadingPng ? 'Baixando...' : 'Baixar PNG (1024px)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadQuickSvg}
+                    disabled={quickDownloadingSvg}
+                    className="py-2 px-3.5 rounded-xl bg-[#1c1c20] hover:bg-[#27272a] text-zinc-100 font-semibold text-xs flex items-center gap-1.5 border border-[#27272a] transition-all disabled:opacity-50"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{quickDownloadingSvg ? 'Exportando...' : 'Baixar SVG'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* List of Plaques with Independent QR Links */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading font-bold text-white text-sm">
+                  QR Codes Vinculados às Suas Placas
+                </h3>
+                <span className="text-xs text-zinc-400">
+                  {plaques.length} placa(s) cadastradas
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {plaques.map((plaque) => (
+                  <div
+                    key={plaque.id}
+                    className="rounded-2xl bg-[#121214] border border-[#27272a] p-4 flex flex-col justify-between gap-3 shadow-lg"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-heading font-bold text-white text-sm truncate">
+                          {plaque.title}
+                        </h4>
+                        <div className="font-mono text-[11px] text-zinc-400 mt-0.5 truncate">
+                          /r/{plaque.slug}
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 shrink-0">
+                        Abre Direto
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-[#0a0a0c] border border-[#27272a] rounded-xl flex flex-col gap-1.5 text-xs">
+                      <div className="flex items-center justify-between text-zinc-400 text-[11px]">
+                        <span>Link do QR Code Salvo:</span>
+                        <a
+                          href={plaque.qrTargetUrl || plaque.targetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-red-400 hover:underline flex items-center gap-1"
+                        >
+                          <span>Testar</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                      <div className="font-mono text-xs text-zinc-200 truncate" title={plaque.qrTargetUrl || plaque.targetUrl}>
+                        {plaque.qrTargetUrl || plaque.targetUrl}
+                      </div>
+
+                      <div className="pt-1.5 border-t border-[#1c1c20] text-[10px] text-zinc-400 flex items-center justify-between">
+                        <span className="truncate">NFC desta placa: <strong className="text-zinc-300 font-mono">{plaque.targetUrl}</strong></span>
+                        <span className="text-zinc-400 shrink-0 ml-1">(Independente)</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setQrStudioPlaque(plaque)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-red-950/30"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>Alterar Link / Baixar (PNG e SVG)</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -449,8 +692,10 @@ export default function App() {
       {qrStudioPlaque && (
         <QRCodeStudioModal
           plaque={qrStudioPlaque}
+          currentUser={currentUser}
           isOpen={!!qrStudioPlaque}
           onClose={() => setQrStudioPlaque(null)}
+          onSaveQrLink={handleSaveQrLink}
         />
       )}
 
