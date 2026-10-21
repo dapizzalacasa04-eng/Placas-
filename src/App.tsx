@@ -192,11 +192,19 @@ export default function App() {
     plaqueId: string,
     targetType: TargetType,
     targetUrl: string,
-    targetParams?: Plaque['targetParams']
+    targetParams?: Plaque['targetParams'],
+    applyScope: 'both' | 'nfc' | 'qr' = 'both'
   ) => {
-    await updatePlaqueDestination(currentUser, plaqueId, targetType, targetUrl, targetParams);
+    await updatePlaqueDestination(currentUser, plaqueId, targetType, targetUrl, targetParams, applyScope);
     await refreshData(currentUser);
-    showToast('Destino do chip NFC atualizado com sucesso!', 'success');
+    showToast(
+      applyScope === 'both'
+        ? 'Destino da placa atualizado no Supabase para NFC e QR Code!'
+        : applyScope === 'qr'
+        ? 'Destino do QR Code permanente atualizado no Supabase!'
+        : 'Destino do chip NFC atualizado no Supabase!',
+      'success'
+    );
   };
 
   // Edit independent permanent QR Code destination
@@ -775,6 +783,8 @@ export default function App() {
             onDeleteClient={handleDeleteClient}
             onCreatePlaque={handleCreatePlaque}
             onSelectPlaqueForEdit={(p) => setEditingPlaque(p)}
+            onOpenQrStudio={(p) => setQrStudioPlaque(p)}
+            onTestQr={handleTestQrRoute}
           />
         )}
       </main>

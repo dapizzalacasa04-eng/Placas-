@@ -29,7 +29,7 @@
           if (params.get('q') || params.get('qr')) isQr = true;
 
           if (slug) {
-            var raw = localStorage.getItem('goldflow_nfc_plaques');
+            var raw = localStorage.getItem('goldflow_plaques_v2') || localStorage.getItem('goldflow_nfc_plaques');
             if (raw) {
               var plaques = JSON.parse(raw);
               var norm = slug.trim().toLowerCase();

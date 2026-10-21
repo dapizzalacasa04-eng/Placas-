@@ -17,7 +17,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   // Synchronous initial state from cache for 0ms instant redirect
   const [plaque, setPlaque] = useState<Plaque | undefined>(() => getPlaqueBySlug(slug));
   const [loading, setLoading] = useState(!plaque);
-  const [redirectAttempted, setRedirectAttempted] = useState(false);
+  const [lastRedirectedUrl, setLastRedirectedUrl] = useState<string | null>(null);
 
   // Compute destination URL (QR has its own independent target, falling back to NFC target)
   const destinationUrl = React.useMemo(() => {
@@ -61,8 +61,8 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   useEffect(() => {
     if (!plaque || plaque.isLocked || !plaque.isActive || !destinationUrl) return;
 
-    if (!redirectAttempted) {
-      setRedirectAttempted(true);
+    if (lastRedirectedUrl !== destinationUrl) {
+      setLastRedirectedUrl(destinationUrl);
 
       // Instant direct redirection
       try {
@@ -76,7 +76,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
         }
       }
     }
-  }, [plaque, destinationUrl, redirectAttempted]);
+  }, [plaque, destinationUrl, lastRedirectedUrl]);
 
   // 1. Loading state (only shown if not in local cache while waiting for Supabase)
   if (loading) {

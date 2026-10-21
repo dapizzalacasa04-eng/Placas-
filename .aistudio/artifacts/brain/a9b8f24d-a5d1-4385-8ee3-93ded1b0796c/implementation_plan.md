@@ -309,11 +309,17 @@ Trabalhando por etapas rigorosas e sem simulação de resultados falsos:
 
 ---
 
-## 7. Próximos Passos (Aguardando Aprovação)
+## 7. Status de Implementação e Funcionalidades Concluídas
 
-Após sua aprovação deste plano técnico, iniciaremos a implementação do código:
-1. Configuração do design tokens Tailwind (preto, chumbo, branco, vermelho).
-2. Construção do mecanismo de redirecionamento dinâmico `/r/:slug` e telemetria.
-3. Construção do gerador e exportador de QR Code (PNG 1024px e SVG).
-4. Desenvolvimento dos painéis mobile-first do Administrador GoldFlow e do Cliente.
-5. Criação do conector Supabase com script SQL exportável e seletor de perfil para testes imediatos.
+A função de troca de destino de cada placa pelo painel administrativo foi totalmente implementada e testada:
+- **Links Permanentes Exclusivos**: Cada placa mantém rotas fixas (`/r/:slug` para chip NFC e `/q/:slug` para QR Code permanente).
+- **Opções de Destino Suportadas**:
+  1. Google Avaliações (link direto de 5 estrelas do Google Meu Negócio)
+  2. Instagram (conversão imediata de usuário `@perfil` para link do app)
+  3. WhatsApp (número com DDD + mensagem automática codificada pronta para envio)
+  4. Qualquer URL / Link Personalizado (websites, cardápios digitais, catálogos, Linktree, iFood, etc.)
+- **Persistência Completa no Supabase**: Ao salvar, a alteração é sincronizada nas colunas `target_url`, `target_type`, `qr_target_url` e `qr_target_type` da tabela `public.plaques`.
+- **Independência Física**: O chip NFC e o QR Code impresso permanecem 100% inalterados fisicamente, dispensando regravação ou reimpressão.
+- **Redirecionamento Dinâmico**: Ao acessar o link permanente físico (`/r/:slug` ou `/q/:slug`), o visitante é redirecionado imediatamente para o novo destino configurado.
+- **Controle de Escopo**: O usuário pode optar por atualizar ambos os canais simultaneamente (NFC + QR Code) ou de forma seletiva.
+- **Painel Administrativo Enriquecido**: Central de placas com busca rápida, exibição clara de destinos atuais, botões para copiar links permanentes e ação direta de troca de destino.

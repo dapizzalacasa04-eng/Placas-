@@ -258,7 +258,8 @@ export async function updatePlaqueDestination(
   plaqueId: string,
   targetType: Plaque['targetType'],
   targetUrl: string,
-  targetParams?: Plaque['targetParams']
+  targetParams?: Plaque['targetParams'],
+  applyScope: 'both' | 'nfc' | 'qr' = 'both'
 ): Promise<Plaque> {
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
   const index = allPlaques.findIndex((p) => p.id === plaqueId);
@@ -274,10 +275,18 @@ export async function updatePlaqueDestination(
     throw new Error('Esta placa está bloqueada pela administração e não pode ter o destino alterado.');
   }
 
+  const cleanUrl = targetUrl.trim();
+  const nextTargetUrl = applyScope === 'qr' ? plaque.targetUrl : cleanUrl;
+  const nextTargetType = applyScope === 'qr' ? plaque.targetType : targetType;
+  const nextQrUrl = applyScope === 'nfc' ? (plaque.qrTargetUrl || plaque.targetUrl) : cleanUrl;
+  const nextQrType = applyScope === 'nfc' ? (plaque.qrTargetType || plaque.targetType) : targetType;
+
   const updated: Plaque = {
     ...plaque,
-    targetType,
-    targetUrl,
+    targetType: nextTargetType,
+    targetUrl: nextTargetUrl,
+    qrTargetType: nextQrType,
+    qrTargetUrl: nextQrUrl,
     targetParams: targetParams || plaque.targetParams,
     updatedAt: new Date().toISOString(),
   };
@@ -289,13 +298,22 @@ export async function updatePlaqueDestination(
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
+      const updateData: Record<string, any> = {
+        updated_at: updated.updatedAt,
+      };
+
+      if (applyScope === 'both' || applyScope === 'nfc') {
+        updateData.target_type = nextTargetType;
+        updateData.target_url = nextTargetUrl;
+      }
+      if (applyScope === 'both' || applyScope === 'qr') {
+        updateData.qr_target_type = nextQrType;
+        updateData.qr_target_url = nextQrUrl;
+      }
+
       await supabase
         .from('plaques')
-        .update({
-          target_type: targetType,
-          target_url: targetUrl,
-          updated_at: updated.updatedAt,
-        })
+        .update(updateData)
         .eq('id', plaqueId);
     } catch (e) {
       console.warn('Failed to sync plaque update to Supabase', e);
