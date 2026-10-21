@@ -309,14 +309,15 @@ export default function App() {
 
   // Create Client (Saved to Supabase & localStorage)
   const handleCreateClient = async (data: {
-    email: string;
-    fullName: string;
-    companyName: string;
-    phone: string;
+    email?: string;
+    fullName?: string;
+    companyName?: string;
+    phone?: string;
   }) => {
     await createClientProfile(currentUser, data);
     await refreshData(currentUser);
-    showToast(`Cliente ${data.fullName} cadastrado e salvo no Supabase com sucesso!`, 'success');
+    const label = data.companyName || data.fullName || 'Empresa';
+    showToast(`Empresa "${label}" cadastrada e salva no Supabase com sucesso!`, 'success');
   };
 
   // Delete Client

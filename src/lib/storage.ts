@@ -52,12 +52,41 @@ function saveStored<T>(key: string, value: T) {
   }
 }
 
+const DELETED_USERS_KEY = 'goldflow_deleted_users_v2';
+
+function getDeletedUserIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_USERS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {
+    console.error('Error reading deleted users', e);
+  }
+  return new Set();
+}
+
+function markUserAsDeleted(userId: string) {
+  const set = getDeletedUserIds();
+  set.add(userId);
+  saveStored(DELETED_USERS_KEY, Array.from(set));
+}
+
+function unmarkUserAsDeleted(userId: string) {
+  const set = getDeletedUserIds();
+  if (set.has(userId)) {
+    set.delete(userId);
+    saveStored(DELETED_USERS_KEY, Array.from(set));
+  }
+}
+
 // User state — purely real users without mock or fictitious accounts
 export function getUsers(): UserProfile[] {
   const loaded = getStored<UserProfile[]>(USERS_STORAGE_KEY, INITIAL_USERS);
-  // Filter out any obsolete mock examples from prior sessions
+  const deletedSet = getDeletedUserIds();
+
+  // Filter out any obsolete mock examples and deleted users
   const cleaned = loaded.filter(
     (u) =>
+      !deletedSet.has(u.id) &&
       u.id !== 'user-client-1' &&
       u.id !== 'user-client-2' &&
       u.email !== 'contato@bistroroyal.com.br' &&
@@ -69,9 +98,12 @@ export function getUsers(): UserProfile[] {
   return cleaned.length > 0 ? cleaned : [DEFAULT_ADMIN_USER];
 }
 
-// Fetch real people/profiles from Supabase (or fallback to local cache)
+// Fetch real people/profiles from Supabase with smart bidirectional merge
 export async function fetchUsers(): Promise<UserProfile[]> {
+  const localUsers = getUsers();
+  const deletedSet = getDeletedUserIds();
   const supabase = getSupabaseClient();
+
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -79,19 +111,58 @@ export async function fetchUsers(): Promise<UserProfile[]> {
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (!error && data && data.length > 0) {
-        const mapped: UserProfile[] = data.map((d: any) => ({
-          id: d.id,
-          email: d.email,
-          role: d.role as UserRole,
-          fullName: d.full_name,
-          companyName: d.company_name || d.full_name,
-          phone: d.phone || '',
-          createdAt: d.created_at,
-        }));
+      if (error) {
+        console.warn('Supabase fetch profiles notice:', error.message || error);
+      } else if (data) {
+        const mappedRemote: UserProfile[] = data
+          .filter((d: any) => !deletedSet.has(d.id))
+          .map((d: any) => ({
+            id: d.id,
+            email: d.email || '',
+            role: (d.role as UserRole) || 'client',
+            fullName: d.full_name || d.company_name || 'Cliente',
+            companyName: d.company_name || d.full_name || 'Empresa',
+            phone: d.phone || '',
+            createdAt: d.created_at || new Date().toISOString(),
+          }));
 
-        const hasAdmin = mapped.some((u) => u.role === 'admin');
-        const finalUsers = hasAdmin ? mapped : [DEFAULT_ADMIN_USER, ...mapped];
+        // Merge Strategy: Combine remote and local records
+        // Remote takes precedence for existing IDs, but newly created local records are PRESERVED!
+        const userMap = new Map<string, UserProfile>();
+
+        // 1. Add all valid remote users
+        for (const remote of mappedRemote) {
+          userMap.set(remote.id, remote);
+        }
+
+        // 2. Add local users that may not have synced to Supabase yet
+        for (const local of localUsers) {
+          if (!deletedSet.has(local.id)) {
+            if (!userMap.has(local.id)) {
+              userMap.set(local.id, local);
+              // Asynchronous auto-sync: Push missing local company to Supabase in background
+              supabase
+                .from('profiles')
+                .upsert({
+                  id: local.id,
+                  email: local.email,
+                  role: local.role,
+                  full_name: local.fullName,
+                  company_name: local.companyName,
+                  phone: local.phone,
+                  created_at: local.createdAt,
+                })
+                .then(({ error: syncErr }) => {
+                  if (syncErr) console.warn('Auto-sync profile to Supabase warning:', syncErr);
+                });
+            }
+          }
+        }
+
+        const merged = Array.from(userMap.values());
+        const hasAdmin = merged.some((u) => u.role === 'admin');
+        const finalUsers = hasAdmin ? merged : [DEFAULT_ADMIN_USER, ...merged];
+
         saveStored(USERS_STORAGE_KEY, finalUsers);
         return finalUsers;
       }
@@ -100,7 +171,7 @@ export async function fetchUsers(): Promise<UserProfile[]> {
     }
   }
 
-  return getUsers();
+  return localUsers;
 }
 
 export function getCurrentUser(): UserProfile {
@@ -604,63 +675,78 @@ export async function createPlaque(
   return newPlaque;
 }
 
-// Create new Client Profile with Real Person Name (Admin only, saved to Supabase & localStorage)
+// Create new Client / Company Profile (Admin only, saved to Supabase & localStorage)
 export async function createClientProfile(
   adminUser: UserProfile,
   data: {
-    email: string;
-    fullName: string;
-    companyName: string;
-    phone: string;
+    email?: string;
+    fullName?: string;
+    companyName?: string;
+    phone?: string;
   }
 ): Promise<UserProfile> {
   if (adminUser.role !== 'admin') {
-    throw new Error('Apenas administradores podem cadastrar clientes.');
+    throw new Error('Apenas administradores podem cadastrar empresas e clientes.');
   }
 
-  const cleanFullName = data.fullName.trim();
-  const cleanEmail = data.email.trim();
-  const cleanCompany = data.companyName.trim() || cleanFullName;
-  const cleanPhone = data.phone.trim();
+  const rawCompany = (data.companyName || '').trim();
+  const rawFullName = (data.fullName || '').trim();
 
-  if (!cleanFullName) {
-    throw new Error('O nome da pessoa é obrigatório.');
+  const cleanCompany = rawCompany || rawFullName;
+  const cleanFullName = rawFullName || rawCompany;
+  const cleanPhone = (data.phone || '').trim();
+
+  if (!cleanCompany && !cleanFullName) {
+    throw new Error('O nome da empresa ou do responsável é obrigatório.');
   }
+
+  const cleanSlug = cleanCompany
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  const cleanEmail = (data.email || '').trim() || `contato@${cleanSlug || 'empresa'}.com.br`;
 
   const users = getUsers();
-  if (cleanEmail && users.some((u) => u.email.toLowerCase() === cleanEmail.toLowerCase())) {
-    throw new Error(`O e-mail "${cleanEmail}" já está cadastrado.`);
-  }
+  // Check if an existing profile with this email exists; if so, update or use existing ID
+  const existing = users.find((u) => u.email.toLowerCase() === cleanEmail.toLowerCase());
+  const targetId = existing ? existing.id : generateUuid();
 
-  const newId = generateUuid();
+  unmarkUserAsDeleted(targetId);
+
   const newUser: UserProfile = {
-    id: newId,
-    email: cleanEmail || `cliente-${newId.substring(0, 8)}@goldflow.com.br`,
+    id: targetId,
+    email: cleanEmail,
     role: 'client',
     fullName: cleanFullName,
     companyName: cleanCompany,
     phone: cleanPhone,
-    createdAt: new Date().toISOString(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
   };
 
-  users.push(newUser);
-  saveStored(USERS_STORAGE_KEY, users);
+  const updatedUsers = users.filter((u) => u.id !== targetId);
+  updatedUsers.push(newUser);
+  saveStored(USERS_STORAGE_KEY, updatedUsers);
 
   // Sync to Supabase table `profiles`
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { error } = await supabase.from('profiles').insert({
-        id: newId,
-        email: newUser.email,
-        role: 'client',
-        full_name: cleanFullName,
-        company_name: cleanCompany,
-        phone: cleanPhone,
-        created_at: newUser.createdAt,
-      });
+      const { error } = await supabase.from('profiles').upsert(
+        {
+          id: targetId,
+          email: newUser.email,
+          role: 'client',
+          full_name: cleanFullName,
+          company_name: cleanCompany,
+          phone: cleanPhone,
+          created_at: newUser.createdAt,
+        },
+        { onConflict: 'id' }
+      );
       if (error) {
-        console.warn('Supabase profile insertion error:', error);
+        console.warn('Supabase profile upsert notice:', error.message || error);
       }
     } catch (e) {
       console.warn('Failed to sync profile to Supabase', e);
@@ -678,6 +764,8 @@ export async function deleteClientProfile(
   if (adminUser.role !== 'admin') {
     throw new Error('Apenas administradores podem excluir clientes.');
   }
+
+  markUserAsDeleted(clientId);
 
   let users = getUsers();
   users = users.filter((u) => u.id !== clientId);

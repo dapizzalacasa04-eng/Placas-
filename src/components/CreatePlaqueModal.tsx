@@ -210,7 +210,7 @@ export const CreatePlaqueModal: React.FC<CreatePlaqueModalProps> = ({
               >
                 {clientList.map((c) => (
                   <option key={c.id} value={c.id} className="bg-[#0b1528]">
-                    {c.fullName} {c.companyName && c.companyName !== c.fullName ? `(${c.companyName})` : ''}
+                    {c.companyName || c.fullName} {c.fullName && c.fullName !== c.companyName ? `(${c.fullName})` : ''}
                   </option>
                 ))}
               </select>

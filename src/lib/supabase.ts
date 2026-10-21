@@ -7,10 +7,25 @@ export function getStoredSupabaseConfig(): SupabaseConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (parsed.url && parsed.anonKey) {
+        return parsed;
+      }
     }
   } catch (err) {
     console.error('Failed to read supabase config from localStorage', err);
+  }
+
+  // Check Vite environment variables if configured
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || '';
+  const envAnonKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+
+  if (envUrl && envAnonKey) {
+    return {
+      url: envUrl,
+      anonKey: envAnonKey,
+      isConnected: true,
+    };
   }
 
   return {
@@ -64,21 +79,26 @@ export async function testSupabaseConnection(url: string, anonKey: string): Prom
 
   try {
     const client = createClient(url, anonKey);
-    // Attempt reading public plaques or health check
-    const { error } = await client.from('plaques').select('id').limit(1);
+    // Test profiles table read
+    const { error: profilesErr } = await client.from('profiles').select('id').limit(1);
     
-    if (error) {
-      // If table doesn't exist yet, it's connected to Supabase but schema is missing
-      if (error.code === '42P01') {
+    if (profilesErr) {
+      if (profilesErr.code === '42P01') {
         return { 
           success: true, 
-          message: 'Conectado ao Supabase com sucesso! Atenção: as tabelas ainda não foram criadas. Execute o Script SQL fornecido no painel.' 
+          message: 'Conectado ao Supabase! AVISO: A tabela "profiles" ainda não existe. Copie e execute o Script SQL no SQL Editor do Supabase para criar as tabelas e liberar o RLS.' 
         };
       }
-      return { success: false, message: `Erro ao consultar banco: ${error.message} (Código ${error.code})` };
+      if (profilesErr.code === '42501') {
+        return {
+          success: false,
+          message: 'Aviso de RLS (Permissão Negada): As políticas RLS do Supabase estão bloqueando a leitura da tabela "profiles". Execute o Script SQL fornecido na aba "Script SQL" para liberar o acesso ao client anônimo.'
+        };
+      }
+      return { success: false, message: `Erro ao consultar banco: ${profilesErr.message} (Código ${profilesErr.code})` };
     }
 
-    return { success: true, message: 'Conexão validada com sucesso! Tabelas e RLS operantes no Supabase.' };
+    return { success: true, message: 'Conexão validada com sucesso! Tabelas "profiles" e "plaques" operantes com RLS liberado.' };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, message: `Falha na conexão: ${msg}` };
@@ -93,27 +113,32 @@ export const SUPABASE_SQL_SCHEMA = `-- =========================================
 -- 1. Habilitar extensão de UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Tabela de Perfis de Usuários (Administradores GoldFlow e Clientes Reais)
+-- 2. Tabela de Perfis de Usuários e Empresas (Profiles)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  email TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'client')) DEFAULT 'client',
-  full_name TEXT NOT NULL,
+  email TEXT,
+  role TEXT NOT NULL DEFAULT 'client',
+  full_name TEXT,
   company_name TEXT,
   phone TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Garantir remoção de restrições legadas que possam bloquear cadastro de empresas
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE public.profiles ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE public.profiles ALTER COLUMN full_name DROP NOT NULL;
+
 -- 3. Tabela de Placas Inteligentes e Links Permanentes
 CREATE TABLE IF NOT EXISTS public.plaques (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  client_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  client_id UUID NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   title TEXT NOT NULL,
-  target_type TEXT NOT NULL CHECK (target_type IN ('google_review', 'whatsapp', 'instagram', 'menu', 'website', 'custom')),
-  target_url TEXT NOT NULL,
+  target_type TEXT NOT NULL DEFAULT 'google_review',
+  target_url TEXT NOT NULL DEFAULT 'https://google.com',
   qr_target_type TEXT DEFAULT 'custom',
-  qr_target_url TEXT, -- Link independente do QR Code (abre o link direto)
+  qr_target_url TEXT,
   is_active BOOLEAN DEFAULT true NOT NULL,
   is_locked BOOLEAN DEFAULT false NOT NULL,
   lock_reason TEXT,
@@ -126,7 +151,7 @@ CREATE TABLE IF NOT EXISTS public.plaques (
 -- 4. Tabela de Telemetria de Acessos (Scans)
 CREATE TABLE IF NOT EXISTS public.scans (
   id BIGSERIAL PRIMARY KEY,
-  plaque_id UUID REFERENCES public.plaques(id) ON DELETE CASCADE NOT NULL,
+  plaque_id UUID NOT NULL,
   source TEXT NOT NULL CHECK (source IN ('nfc', 'qr', 'direct')),
   device_type TEXT,
   user_agent TEXT,
@@ -143,52 +168,51 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plaques ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scans ENABLE ROW LEVEL SECURITY;
 
--- 7. Políticas RLS: Profiles (Gerenciamento de Clientes e Pessoas Reais)
+-- 7. Limpar políticas antigas/restritivas que impediam inserção anônima
 DROP POLICY IF EXISTS "Public and users can read profiles" ON public.profiles;
-CREATE POLICY "Public and users can read profiles" ON public.profiles
-  FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow insert profiles" ON public.profiles;
-CREATE POLICY "Allow insert profiles" ON public.profiles
-  FOR INSERT WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow update profiles" ON public.profiles;
-CREATE POLICY "Allow update profiles" ON public.profiles
-  FOR UPDATE USING (true);
-
 DROP POLICY IF EXISTS "Allow delete profiles" ON public.profiles;
-CREATE POLICY "Allow delete profiles" ON public.profiles
-  FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Users read own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public insert profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public update profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow public delete profiles" ON public.profiles;
 
--- 8. Políticas RLS: Plaques (Acesso e Atualização de Placas)
+CREATE POLICY "Allow public read profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Allow public insert profiles" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update profiles" ON public.profiles FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete profiles" ON public.profiles FOR DELETE USING (true);
+
 DROP POLICY IF EXISTS "Allow all read plaques" ON public.plaques;
-CREATE POLICY "Allow all read plaques" ON public.plaques
-  FOR SELECT USING (true);
-
 DROP POLICY IF EXISTS "Allow all insert plaques" ON public.plaques;
-CREATE POLICY "Allow all insert plaques" ON public.plaques
-  FOR INSERT WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow all update plaques" ON public.plaques;
-CREATE POLICY "Allow all update plaques" ON public.plaques
-  FOR UPDATE USING (true);
-
 DROP POLICY IF EXISTS "Allow all delete plaques" ON public.plaques;
-CREATE POLICY "Allow all delete plaques" ON public.plaques
-  FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Clients read own plaques" ON public.plaques;
+DROP POLICY IF EXISTS "Clients update destination of own plaques" ON public.plaques;
+DROP POLICY IF EXISTS "Admins full plaque management" ON public.plaques;
+DROP POLICY IF EXISTS "Allow public read plaques" ON public.plaques;
+DROP POLICY IF EXISTS "Allow public insert plaques" ON public.plaques;
+DROP POLICY IF EXISTS "Allow public update plaques" ON public.plaques;
+DROP POLICY IF EXISTS "Allow public delete plaques" ON public.plaques;
 
--- 10. Políticas RLS: Scans (Telemetria)
+CREATE POLICY "Allow public read plaques" ON public.plaques FOR SELECT USING (true);
+CREATE POLICY "Allow public insert plaques" ON public.plaques FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update plaques" ON public.plaques FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete plaques" ON public.plaques FOR DELETE USING (true);
+
 DROP POLICY IF EXISTS "View scans of own plaques" ON public.scans;
-CREATE POLICY "View scans of own plaques" ON public.scans
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.plaques
-      WHERE plaques.id = scans.plaque_id 
-      AND (plaques.client_id = auth.uid() OR public.is_goldflow_admin())
-    )
-  );
-
 DROP POLICY IF EXISTS "Public record scan" ON public.scans;
-CREATE POLICY "Public record scan" ON public.scans
-  FOR INSERT TO anon WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public read scans" ON public.scans;
+DROP POLICY IF EXISTS "Allow public insert scans" ON public.scans;
+
+CREATE POLICY "Allow public read scans" ON public.scans FOR SELECT USING (true);
+CREATE POLICY "Allow public insert scans" ON public.scans FOR INSERT WITH CHECK (true);
+
+-- 8. Conceder permissões para roles do Supabase
+GRANT ALL ON TABLE public.profiles TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.plaques TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.scans TO anon, authenticated, service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 `;

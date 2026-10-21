@@ -131,18 +131,28 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (!clientForm.fullName.trim()) {
-      setError('Por favor, informe o nome real da pessoa.');
+    const company = clientForm.companyName.trim();
+    const name = clientForm.fullName.trim();
+    const effectiveCompany = company || name;
+    const effectiveName = name || company;
+
+    if (!effectiveCompany && !effectiveName) {
+      setError('Por favor, informe o nome da empresa ou responsável.');
       return;
     }
 
     setSaving(true);
     try {
-      await onCreateClient(clientForm);
-      setSuccess(`Cliente ${clientForm.fullName} cadastrado com sucesso no Supabase!`);
+      await onCreateClient({
+        companyName: effectiveCompany,
+        fullName: effectiveName,
+        email: clientForm.email.trim(),
+        phone: clientForm.phone.trim(),
+      });
+      setSuccess(`Empresa "${effectiveCompany}" cadastrada com sucesso e salva no Supabase!`);
       setClientForm({ fullName: '', companyName: '', email: '', phone: '' });
       setShowNewClientModal(false);
-      setTimeout(() => setSuccess(null), 3500);
+      setTimeout(() => setSuccess(null), 4000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
@@ -233,7 +243,7 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
             className="py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-950/60 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <Building2 className="w-4 h-4" />
-            <span>Cadastrar Cliente</span>
+            <span>Cadastrar Empresa</span>
           </button>
         </div>
       </div>
@@ -428,11 +438,11 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
         )}
       </div>
 
-      {/* SEÇÃO 2: CLIENTES & PESSOAS CADASTRADAS */}
+      {/* SEÇÃO 2: EMPRESAS & CLIENTES CADASTRADOS */}
       <div className="flex flex-col gap-4">
         <div>
           <h2 className="font-heading text-lg font-bold text-white">
-            Clientes Cadastrados (Pessoas Reais)
+            Empresas & Clientes Cadastrados
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Cadastros persistidos no Supabase e vinculados a suas respectivas placas.
@@ -442,18 +452,18 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
         {clientUsers.length === 0 ? (
           <div className="p-8 rounded-3xl bg-[#0b1528] border border-[#1b2f52] text-center flex flex-col items-center justify-center gap-3 shadow-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center">
-              <Users className="w-6 h-6" />
+              <Building2 className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">Nenhum cliente cadastrado ainda</h3>
+            <h3 className="text-base font-bold text-white">Nenhuma empresa cadastrada ainda</h3>
             <p className="text-xs text-slate-400 max-w-sm">
-              Cadastre os nomes reais de seus clientes para emitir placas inteligentes vinculadas com isolamento seguro no Supabase.
+              Cadastre as empresas e clientes para emitir placas inteligentes vinculadas com isolamento seguro no Supabase.
             </p>
             <button
-              onClick={() => setShowNewClientModal(true)}
+              onClick={() => { setError(null); setShowNewClientModal(true); }}
               className="mt-2 py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-950/60 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Building2 className="w-4 h-4" />
-              <span>Cadastrar Cliente Agora</span>
+              <span>Cadastrar Empresa Agora</span>
             </button>
           </div>
         ) : (
@@ -473,10 +483,10 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-heading font-extrabold text-base sm:text-lg text-white truncate">
-                        {client.fullName}
+                        {client.companyName || client.fullName}
                       </h3>
                       <p className="text-xs text-slate-400 mt-0.5 truncate">
-                        Empresa: <span className="text-slate-200 font-semibold">{client.companyName || 'Pessoa Física'}</span>
+                        Responsável: <span className="text-slate-200 font-semibold">{client.fullName || client.companyName}</span>
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -486,7 +496,7 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
                       {onDeleteClient && (
                         <button
                           onClick={() => {
-                            if (confirm(`Deseja remover o cadastro de "${client.fullName}"?`)) {
+                            if (confirm(`Deseja remover o cadastro de "${client.companyName || client.fullName}"?`)) {
                               onDeleteClient(client.id);
                             }
                           }}
@@ -569,57 +579,71 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
         )}
       </div>
 
-      {/* Modal: Cadastrar Novo Cliente com Nome Real */}
+      {/* Modal: Cadastrar Nova Empresa / Cliente */}
       {showNewClientModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-[#0b1528] border border-[#1b2f52] rounded-3xl p-6 flex flex-col gap-4 shadow-2xl shadow-blue-950/60">
             <div>
               <h2 className="font-heading text-lg font-bold text-white">
-                Cadastrar Cliente GoldFlow
+                Cadastrar Empresa / Cliente
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Os dados serão salvos no Supabase e permanecerão gravados no sistema.
+                Os dados são salvos no Supabase com persistência permanente e não se perdem após atualizar a página.
               </p>
             </div>
 
+            {error && (
+              <div className="p-3.5 rounded-2xl bg-red-950/80 border border-red-700 text-xs text-red-200 flex items-center gap-2.5 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateClientSubmit} className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-slate-300 font-bold">Nome Completo da Pessoa (Cliente):</label>
+                <label className="text-xs text-slate-300 font-bold">
+                  Nome da Empresa ou Estabelecimento:
+                </label>
                 <input
                   type="text"
                   required
-                  value={clientForm.fullName}
-                  onChange={(e) => setClientForm({ ...clientForm, fullName: e.target.value })}
-                  placeholder="Nome real da pessoa"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-300 font-bold">Empresa ou Negócio (Opcional):</label>
-                <input
-                  type="text"
                   value={clientForm.companyName}
                   onChange={(e) => setClientForm({ ...clientForm, companyName: e.target.value })}
-                  placeholder="Nome da empresa ou negócio"
+                  placeholder="Ex: Restaurante Bom Sabor, Barbearia VIP..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-300 font-bold">
+                  Nome do Responsável / Contato (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={clientForm.fullName}
+                  onChange={(e) => setClientForm({ ...clientForm, fullName: e.target.value })}
+                  placeholder="Ex: Carlos Eduardo Silva"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-bold">E-mail de Contato:</label>
+                <label className="text-xs text-slate-300 font-bold">
+                  E-mail de Contato (Opcional):
+                </label>
                 <input
-                  type="email"
-                  required
+                  type="text"
                   value={clientForm.email}
                   onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
-                  placeholder="email@empresa.com.br"
+                  placeholder="contato@empresa.com.br"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-bold">Telefone / WhatsApp:</label>
+                <label className="text-xs text-slate-300 font-bold">
+                  Telefone / WhatsApp (Opcional):
+                </label>
                 <input
                   type="text"
                   value={clientForm.phone}
@@ -640,9 +664,9 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-950 transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-950 transition-all disabled:opacity-50"
                 >
-                  {saving ? 'Gravando no Supabase...' : 'Confirmar Cadastro'}
+                  {saving ? 'Gravando no Supabase...' : 'Confirmar Cadastro da Empresa'}
                 </button>
               </div>
             </form>

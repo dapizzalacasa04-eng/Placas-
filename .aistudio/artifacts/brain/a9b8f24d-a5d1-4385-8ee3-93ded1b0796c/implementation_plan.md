@@ -323,3 +323,9 @@ A função de troca de destino de cada placa pelo painel administrativo foi tota
 - **Redirecionamento Dinâmico**: Ao acessar o link permanente físico (`/r/:slug` ou `/q/:slug`), o visitante é redirecionado imediatamente para o novo destino configurado.
 - **Controle de Escopo**: O usuário pode optar por atualizar ambos os canais simultaneamente (NFC + QR Code) ou de forma seletiva.
 - **Painel Administrativo Enriquecido**: Central de placas com busca rápida, exibição clara de destinos atuais, botões para copiar links permanentes e ação direta de troca de destino.
+- **Cadastro Resiliente de Empresas (Persistência Garantida no Supabase)**:
+  - O modal de cadastro de empresas foi ajustado com o campo "Nome da Empresa ou Estabelecimento" como campo prioritário.
+  - Alerta de erro renderizado diretamente no interior do modal para visibilidade imediata em caso de inconsistência.
+  - Sincronização bidirecional resiliente em `fetchUsers`: mescla os registros remotos com os locais e preserva as empresas criadas, eliminando o problema de empresas desaparecendo após recarregar a página (`F5`).
+  - Rastreamento de exclusão por tombstone (`goldflow_deleted_users_v2`) para que exclusões permaneçam permanentes.
+  - Script SQL atualizado com remoção de restrições de chave estrangeira legadas (`profiles_id_fkey`), colunas flexibilizadas para evitar erros de `NOT NULL`, e políticas RLS liberadas para `anon` e `authenticated`.

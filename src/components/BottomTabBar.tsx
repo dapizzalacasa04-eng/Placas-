@@ -43,7 +43,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       ? [
           {
             id: 'clients' as TabType,
-            label: 'Clientes',
+            label: 'Empresas',
             icon: Users,
           },
         ]
