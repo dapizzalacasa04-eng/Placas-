@@ -1,0 +1,6 @@
+{
+  "name": "GoldFlow NFC",
+  "description": "Plataforma profissional para gerenciamento de placas inteligentes NFC e QR Codes com links dinâmicos permanentes, bloqueio remoto e métricas segmentadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
