@@ -7,12 +7,17 @@
   }
 
   body {
-    background-color: #0a0a0c;
-    color: #f4f4f5;
+    background-color: #060b17;
+    color: #f8fafc;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     touch-action: manipulation;
+  }
+
+  ::selection {
+    background-color: #2563eb;
+    color: #ffffff;
   }
 
   h1, h2, h3, h4, .font-heading {
@@ -20,18 +25,18 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom modern scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f0f12;
+  background: #080f1d;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #1e355b;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #2b497a;
 }

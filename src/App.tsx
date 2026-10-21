@@ -15,7 +15,10 @@ import {
   Image as ImageIcon,
   FileCode,
   Save,
-  Link2
+  Link2,
+  HelpCircle,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { downloadQRCodePNG, downloadQRCodeSVG } from './lib/qrCodeHelper';
 import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource } from './types';
@@ -43,6 +46,8 @@ import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { AdminClientsView } from './components/AdminClientsView';
 import { PublicRedirectView } from './components/PublicRedirectView';
+import { GuideStepByStepView } from './components/GuideStepByStepView';
+import { CreatePlaqueModal } from './components/CreatePlaqueModal';
 
 export default function App() {
   // Check URL for public redirect route e.g. /r/:slug?src=nfc or ?r=slug
@@ -91,13 +96,14 @@ export default function App() {
   );
 
   // Modals
+  const [isCreatePlaqueOpen, setIsCreatePlaqueOpen] = useState(false);
   const [editingPlaque, setEditingPlaque] = useState<Plaque | null>(null);
   const [qrStudioPlaque, setQrStudioPlaque] = useState<Plaque | null>(null);
   const [isNfcSimulatorOpen, setIsNfcSimulatorOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Quick Standalone QR Generator State
+  // Quick Standalone QR Generator State in QR Tab
   const [quickQrUrl, setQuickQrUrl] = useState('https://wa.me/5511999998888');
   const [quickQrPlaqueId, setQuickQrPlaqueId] = useState('');
   const [quickDownloadingPng, setQuickDownloadingPng] = useState(false);
@@ -147,7 +153,7 @@ export default function App() {
   const handleSaveQrLink = async (plaqueId: string, newQrUrl: string) => {
     await updatePlaqueQrDestination(currentUser, plaqueId, newQrUrl);
     await refreshData(currentUser);
-    showToast('Link do QR Code salvo no banco de dados com sucesso!', 'success');
+    showToast('Link do QR Code atualizado no banco de dados com sucesso!', 'success');
   };
 
   const handleDownloadQuickPng = async () => {
@@ -209,7 +215,7 @@ export default function App() {
         currentUser,
         plaque.id,
         nextLockState,
-        nextLockState ? 'Bloqueio administrativo por pendência cadastral.' : undefined
+        nextLockState ? 'Bloqueio administrativo temporário.' : undefined
       );
       await refreshData(currentUser);
       showToast(
@@ -251,6 +257,7 @@ export default function App() {
   }) => {
     await createPlaque(currentUser, data);
     await refreshData(currentUser);
+    showToast(`Placa /r/${data.slug} criada com sucesso!`, 'success');
   };
 
   // If public route requested, render PublicRedirectView
@@ -276,14 +283,17 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-zinc-100 flex flex-col font-sans selection:bg-red-600 selection:text-white">
+    <div className="min-h-screen bg-[#060b17] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Navbar Contract */}
       <Navbar
         currentUser={currentUser}
         users={users}
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab)}
         onSwitchUser={handleSwitchUser}
         onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
         onOpenNfcSimulator={() => setIsNfcSimulatorOpen(true)}
+        onOpenNewPlaqueModal={() => setIsCreatePlaqueOpen(true)}
         isSupabaseConnected={isSupabaseConnected}
       />
 
@@ -291,17 +301,17 @@ export default function App() {
       {toastMessage && (
         <div className="fixed top-16 right-4 z-50 animate-in slide-in-from-top-2 duration-200">
           <div
-            className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 shadow-2xl ${
+            className={`px-4 py-3 rounded-2xl border text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-2xl ${
               toastMessage.type === 'success'
                 ? 'bg-emerald-950 border-emerald-700 text-emerald-200'
                 : toastMessage.type === 'error'
                 ? 'bg-red-950 border-red-700 text-red-200'
-                : 'bg-zinc-900 border-zinc-700 text-zinc-200'
+                : 'bg-[#0b1528] border-[#1e355b] text-blue-200'
             }`}
           >
             {toastMessage.type === 'success' && <Check className="w-4 h-4 text-emerald-400" />}
             {toastMessage.type === 'error' && <AlertCircle className="w-4 h-4 text-red-400" />}
-            {toastMessage.type === 'info' && <ShieldCheck className="w-4 h-4 text-zinc-400" />}
+            {toastMessage.type === 'info' && <ShieldCheck className="w-4 h-4 text-blue-400" />}
             <span>{toastMessage.text}</span>
           </div>
         </div>
@@ -311,61 +321,87 @@ export default function App() {
       <main className="flex-1 w-full">
         {/* TAB 1: PLAQUES LIST */}
         {activeTab === 'plaques' && (
-          <div className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6 pb-24 flex flex-col gap-5">
-            {/* Context Header */}
+          <div className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6 pb-28 flex flex-col gap-6">
+            {/* Friendly Welcome & Quick Guide Banner */}
+            <div className="rounded-3xl bg-gradient-to-r from-[#0c1830] via-[#091224] to-[#070e1c] border border-[#1b2f52] p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="font-heading font-extrabold text-white text-base sm:text-lg">
+                    {currentUser.role === 'admin' ? 'Painel Geral GoldFlow NFC' : `Placas de ${currentUser.companyName}`}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
+                    Troque o destino dos links a qualquer momento sem regravar o chip físico
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={() => setActiveTab('guide')}
+                  className="flex-1 sm:flex-initial py-3 px-4 rounded-2xl bg-[#0b1528] hover:bg-[#12213d] text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border border-[#1b2f52] transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4 text-blue-400" />
+                  <span>Passo a Passo</span>
+                </button>
+
+                <button
+                  onClick={() => setIsCreatePlaqueOpen(true)}
+                  className="flex-1 sm:flex-initial py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-950 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nova Placa</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Context Header with Search */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">
-                  {currentUser.role === 'admin' ? 'Painel Geral GoldFlow' : 'Placas da Sua Loja'}
-                </span>
                 <h1 className="font-heading text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
                   <span>Placas NFC & QR Codes</span>
-                  <span className="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
-                    {plaques.length} ativas
+                  <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-800">
+                    {plaques.length} cadastradas
                   </span>
                 </h1>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Troque o destino a qualquer momento sem regravar o chip físico
-                </p>
               </div>
 
               {/* Search Bar */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar por placa ou link..."
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#121214] border border-[#27272a] text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
-                  />
-                </div>
-
-                {currentUser.role === 'admin' && (
-                  <button
-                    onClick={() => setActiveTab('clients')}
-                    className="py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-red-950/40 shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Nova Placa</span>
-                  </button>
-                )}
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por placa ou link..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#0b1528] border border-[#1b2f52] text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                />
               </div>
             </div>
 
             {/* Plaques Grid */}
             {filteredPlaques.length === 0 ? (
-              <div className="rounded-2xl bg-[#121214] border border-[#27272a] p-8 text-center flex flex-col items-center justify-center gap-3">
-                <Radio className="w-8 h-8 text-zinc-600" />
-                <h3 className="font-heading font-semibold text-white text-sm">
-                  Nenhuma placa encontrada
-                </h3>
-                <p className="text-xs text-zinc-400 max-w-xs">
-                  {searchQuery
-                    ? 'Nenhum resultado corresponde à sua pesquisa.'
-                    : 'Nenhuma placa vinculada a este perfil.'}
-                </p>
+              <div className="rounded-3xl bg-[#0b1528] border border-[#1b2f52] p-10 text-center flex flex-col items-center justify-center gap-4 shadow-xl">
+                <Radio className="w-12 h-12 text-slate-600" />
+                <div>
+                  <h3 className="font-heading font-bold text-white text-base">
+                    Nenhuma placa encontrada
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-400 max-w-sm mt-1">
+                    {searchQuery
+                      ? 'Nenhum resultado corresponde à sua pesquisa.'
+                      : 'Nenhuma placa vinculada a este perfil.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsCreatePlaqueOpen(true)}
+                  className="py-3 px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-blue-950 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Cadastrar Primeira Placa</span>
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -387,95 +423,110 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: QR CODE STUDIO */}
+        {/* TAB 2: PASSO A PASSO / MANUAL */}
+        {activeTab === 'guide' && (
+          <GuideStepByStepView
+            plaques={plaques}
+            userRole={currentUser.role}
+            onOpenNewPlaqueModal={() => setIsCreatePlaqueOpen(true)}
+            onOpenQrStudio={(p) => {
+              if (p) setQrStudioPlaque(p);
+              else setActiveTab('qr_studio');
+            }}
+            onOpenNfcSimulator={() => setIsNfcSimulatorOpen(true)}
+            onGoToPlaques={() => setActiveTab('plaques')}
+          />
+        )}
+
+        {/* TAB 3: QR CODE STUDIO */}
         {activeTab === 'qr_studio' && (
-          <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-6 pb-24 flex flex-col gap-6">
+          <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-6 pb-28 flex flex-col gap-6">
             <div>
-              <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">
-                Gerador de QR Code Direto & Independente
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
+                Gerador de QR Code Direto & Dinâmico
               </span>
               <h1 className="font-heading text-xl sm:text-2xl font-bold text-white">
                 Central de QR Codes
               </h1>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Cole qualquer link para gerar QR Codes diretos que abrem imediatamente na câmera sem passar pelo app GoldFlow
+              <p className="text-xs text-slate-400 mt-0.5">
+                Cole qualquer link para gerar QR Codes ou altere os destinos das placas impressas
               </p>
             </div>
 
             {/* Quick Generator Box (Paste any link on the fly) */}
-            <div className="rounded-2xl bg-[#121214] border border-[#27272a] p-4 sm:p-5 flex flex-col gap-4 shadow-xl">
+            <div className="rounded-3xl bg-[#0b1528] border border-[#1b2f52] p-5 sm:p-6 flex flex-col gap-4 shadow-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-red-600/10 text-red-500 border border-red-500/20">
-                    <QrCode className="w-5 h-5" />
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                    <QrCode className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-heading font-bold text-white text-sm">
+                    <h3 className="font-heading font-bold text-white text-base">
                       Gerador Rápido: Cole Qualquer Link
                     </h3>
-                    <p className="text-[11px] text-zinc-400">
+                    <p className="text-xs text-slate-400">
                       Gere e baixe em PNG 1024px e SVG para WhatsApp, Instagram, Google, cardápios ou sites
                     </p>
                   </div>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 self-start sm:self-auto">
+                <span className="px-3 py-1 rounded-full text-xs font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-800 self-start sm:self-auto">
                   Abre Diretamente no Celular
                 </span>
               </div>
 
               {/* URL Input */}
               <div className="flex flex-col gap-2">
-                <div className="flex items-center rounded-xl bg-[#0a0a0c] border border-[#27272a] px-3 focus-within:border-red-500 transition-colors">
-                  <Link2 className="w-4 h-4 text-zinc-400 mr-2 shrink-0" />
+                <div className="flex items-center rounded-2xl bg-[#070d1a] border border-[#1b2f52] px-3.5 focus-within:border-blue-500 transition-colors">
+                  <Link2 className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
                     value={quickQrUrl}
                     onChange={(e) => setQuickQrUrl(e.target.value)}
                     placeholder="https://wa.me/5511... ou https://instagram.com/... ou https://g.page/..."
-                    className="w-full py-2.5 bg-transparent text-xs sm:text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none"
+                    className="w-full py-3 bg-transparent text-xs sm:text-sm text-white font-mono placeholder:text-slate-500 focus:outline-none"
                   />
                   {quickQrUrl.trim() && (
                     <a
                       href={quickQrUrl.startsWith('http') ? quickQrUrl : `https://${quickQrUrl}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 font-medium px-2 py-1 rounded bg-[#18181b] border border-[#27272a] shrink-0"
+                      className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-bold px-2.5 py-1.5 rounded-xl bg-[#0b1528] border border-[#1b2f52] shrink-0"
                       title="Testar link em nova aba"
                     >
                       <span>Testar</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
                 </div>
 
                 {/* Preset suggestions */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-zinc-500 font-medium">Exemplos:</span>
+                  <span className="text-[11px] text-slate-400 font-bold">Exemplos:</span>
                   <button
                     type="button"
                     onClick={() => setQuickQrUrl('https://wa.me/5511999998888?text=Olá!%20Vim%20pelo%20QR%20Code.')}
-                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-emerald-400 border border-[#27272a] text-[10px] font-medium"
+                    className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-emerald-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     WhatsApp
                   </button>
                   <button
                     type="button"
                     onClick={() => setQuickQrUrl('https://instagram.com/sualojaoficial')}
-                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-pink-400 border border-[#27272a] text-[10px] font-medium"
+                    className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-pink-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     Instagram
                   </button>
                   <button
                     type="button"
                     onClick={() => setQuickQrUrl('https://g.page/r/Cbistro-royal/review')}
-                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-amber-400 border border-[#27272a] text-[10px] font-medium"
+                    className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-amber-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     Google Avaliações
                   </button>
                   <button
                     type="button"
                     onClick={() => setQuickQrUrl('https://cardapio.sualoja.com.br')}
-                    className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-sky-400 border border-[#27272a] text-[10px] font-medium"
+                    className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-sky-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     Cardápio / Site
                   </button>
@@ -483,16 +534,16 @@ export default function App() {
               </div>
 
               {/* Action Buttons: Download and Plaque Linking */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[#1f1f23]">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#16243f]">
                 {/* Plaque link selector */}
                 {plaques.length > 0 && (
                   <div className="flex items-center gap-2">
                     <select
                       value={quickQrPlaqueId}
                       onChange={(e) => setQuickQrPlaqueId(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-xs text-white focus:outline-none focus:border-red-500"
+                      className="px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-xs text-white focus:outline-none focus:border-blue-500 font-medium"
                     >
-                      <option value="">Selecione uma Placa para Salvar...</option>
+                      <option value="">Vincular a uma Placa Existente...</option>
                       {plaques.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.title} (/r/{p.slug})
@@ -504,23 +555,23 @@ export default function App() {
                       type="button"
                       onClick={handleSaveQuickToPlaque}
                       disabled={!quickQrPlaqueId}
-                      className="px-3 py-1.5 rounded-lg bg-[#1c1c20] hover:bg-[#27272a] text-zinc-200 text-xs font-medium border border-[#27272a] disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      className="px-3.5 py-2.5 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-white text-xs font-bold border border-[#1b2f52] disabled:opacity-40 transition-colors flex items-center gap-1.5"
                     >
-                      <Save className="w-3.5 h-3.5 text-red-400" />
-                      <span>Salvar no Banco</span>
+                      <Save className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Salvar na Placa</span>
                     </button>
                   </div>
                 )}
 
                 {/* Download buttons */}
-                <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-2.5 self-end sm:self-auto">
                   <button
                     type="button"
                     onClick={handleDownloadQuickPng}
                     disabled={quickDownloadingPng}
-                    className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-red-950/40 transition-all disabled:opacity-50"
+                    className="py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-xs flex items-center gap-2 shadow-md transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <ImageIcon className="w-3.5 h-3.5" />
+                    <ImageIcon className="w-4 h-4 text-slate-900" />
                     <span>{quickDownloadingPng ? 'Baixando...' : 'Baixar PNG (1024px)'}</span>
                   </button>
 
@@ -528,10 +579,10 @@ export default function App() {
                     type="button"
                     onClick={handleDownloadQuickSvg}
                     disabled={quickDownloadingSvg}
-                    className="py-2 px-3.5 rounded-xl bg-[#1c1c20] hover:bg-[#27272a] text-zinc-100 font-semibold text-xs flex items-center gap-1.5 border border-[#27272a] transition-all disabled:opacity-50"
+                    className="py-3 px-4 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-white font-bold text-xs flex items-center gap-2 border border-[#1b2f52] transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <FileCode className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{quickDownloadingSvg ? 'Exportando...' : 'Baixar SVG'}</span>
+                    <FileCode className="w-4 h-4 text-blue-400" />
+                    <span>{quickDownloadingSvg ? 'Exportando...' : 'Baixar SVG Vetor'}</span>
                   </button>
                 </div>
               </div>
@@ -540,10 +591,10 @@ export default function App() {
             {/* List of Plaques with Independent QR Links */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-bold text-white text-sm">
+                <h3 className="font-heading font-bold text-white text-base">
                   QR Codes Vinculados às Suas Placas
                 </h3>
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-slate-400 font-bold">
                   {plaques.length} placa(s) cadastradas
                 </span>
               </div>
@@ -552,61 +603,61 @@ export default function App() {
                 {plaques.map((plaque) => (
                   <div
                     key={plaque.id}
-                    className="rounded-2xl bg-[#121214] border border-[#27272a] p-4 flex flex-col justify-between gap-3 shadow-lg"
+                    className="rounded-3xl bg-[#0b1528] border border-[#1b2f52] p-5 flex flex-col justify-between gap-3.5 shadow-xl"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h4 className="font-heading font-bold text-white text-sm truncate">
+                        <h4 className="font-heading font-extrabold text-white text-base truncate">
                           {plaque.title}
                         </h4>
-                        <div className="font-mono text-[11px] text-zinc-400 mt-0.5 truncate flex items-center gap-1.5">
-                          <span className="text-zinc-500">QR Impresso:</span>
-                          <span className="text-white bg-[#1a1a1e] px-1.5 py-0.2 rounded border border-[#27272a]">/q/{plaque.slug}</span>
+                        <div className="font-mono text-xs text-slate-400 mt-1 truncate flex items-center gap-1.5">
+                          <span className="text-slate-400">QR Impresso:</span>
+                          <span className="text-white bg-[#070d1a] px-2 py-0.5 rounded-lg border border-[#1b2f52]">/q/{plaque.slug}</span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 shrink-0">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 shrink-0">
                         QR Dinâmico
                       </span>
                     </div>
 
-                    <div className="p-3 bg-[#0a0a0c] border border-[#27272a] rounded-xl flex flex-col gap-1.5 text-xs">
-                      <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                        <span>Destino Atual do Redirecionamento:</span>
+                    <div className="p-3.5 bg-[#070d1a] border border-[#1b2f52] rounded-2xl flex flex-col gap-2 text-xs">
+                      <div className="flex items-center justify-between text-slate-400 text-xs">
+                        <span className="font-bold text-slate-300">Destino Atual do Redirecionamento:</span>
                         <a
                           href={plaque.qrTargetUrl || plaque.targetUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-red-400 hover:underline flex items-center gap-1"
+                          className="text-blue-400 hover:underline flex items-center gap-1 font-bold"
                         >
                           <span>Testar</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
-                      <div className="font-mono text-xs text-zinc-200 truncate" title={plaque.qrTargetUrl || plaque.targetUrl}>
+                      <div className="font-mono text-xs text-slate-200 truncate" title={plaque.qrTargetUrl || plaque.targetUrl}>
                         {plaque.qrTargetUrl || plaque.targetUrl}
                       </div>
 
-                      <div className="pt-1.5 border-t border-[#1c1c20] text-[10px] text-zinc-400 flex items-center justify-between">
-                        <span className="truncate">NFC desta placa: <strong className="text-zinc-300 font-mono">{plaque.targetUrl}</strong></span>
-                        <span className="text-emerald-400 shrink-0 ml-1">Nunca precisa reimprimir</span>
+                      <div className="pt-2 border-t border-[#14233e] text-[11px] text-slate-400 flex items-center justify-between">
+                        <span className="truncate">NFC desta placa: <strong className="text-slate-300 font-mono">{plaque.targetUrl}</strong></span>
+                        <span className="text-emerald-400 shrink-0 ml-1 font-bold">Nunca precisa reimprimir</span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
                         onClick={() => setPublicRoute({ slug: plaque.slug, source: 'qr' })}
-                        className="py-2 px-2 rounded-xl bg-[#1c1c20] hover:bg-[#27272a] text-zinc-200 font-medium text-xs flex items-center justify-center gap-1 border border-[#27272a] transition-colors"
-                        title="Simular escaneamento da câmera do QR Code"
+                        className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
+                        title="Simular leitura da câmera do QR Code"
                       >
-                        <Smartphone className="w-3.5 h-3.5 text-red-400" />
+                        <Smartphone className="w-4 h-4 text-blue-400" />
                         <span>Testar QR (/q/)</span>
                       </button>
 
                       <button
                         onClick={() => setQrStudioPlaque(plaque)}
-                        className="py-2 px-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center justify-center gap-1 transition-colors shadow-md shadow-red-950/30"
+                        className="min-h-[46px] py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-950 hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        <QrCode className="w-3.5 h-3.5" />
+                        <QrCode className="w-4 h-4" />
                         <span>Trocar Link / Baixar</span>
                       </button>
                     </div>
@@ -617,7 +668,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: ANALYTICS */}
+        {/* TAB 4: ANALYTICS */}
         {activeTab === 'analytics' && (
           <AnalyticsView
             plaques={plaques}
@@ -627,7 +678,7 @@ export default function App() {
           />
         )}
 
-        {/* TAB 4: CLIENTS (ADMIN ONLY) */}
+        {/* TAB 5: CLIENTS (ADMIN ONLY) */}
         {activeTab === 'clients' && currentUser.role === 'admin' && (
           <AdminClientsView
             users={users}
@@ -636,60 +687,6 @@ export default function App() {
             onCreatePlaque={handleCreatePlaque}
             onSelectPlaqueForEdit={(p) => setEditingPlaque(p)}
           />
-        )}
-
-        {/* TAB 5: SIMULATOR */}
-        {activeTab === 'simulator' && (
-          <div className="max-w-md mx-auto px-4 pt-6 pb-24 flex flex-col gap-4">
-            <div className="text-center">
-              <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">
-                Ambiente de Teste Físico
-              </span>
-              <h1 className="font-heading text-xl font-bold text-white">
-                Simulador de Aproximação
-              </h1>
-              <p className="text-xs text-zinc-400">
-                Toque no botão para simular um cliente encostando o celular na placa real
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#121214] border border-[#27272a] flex flex-col gap-3">
-              {plaques.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-3 rounded-xl bg-[#0a0a0c] border border-[#27272a] flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-white text-xs truncate">
-                      {p.title}
-                    </div>
-                    <div className="font-mono text-[11px] text-zinc-400 truncate">
-                      /r/{p.slug}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => setPublicRoute({ slug: p.slug, source: 'nfc' })}
-                      className="py-1 px-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium text-xs flex items-center gap-1 transition-colors"
-                      title="Simular aproximação do chip NFC"
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      <span>NFC</span>
-                    </button>
-                    <button
-                      onClick={() => setPublicRoute({ slug: p.slug, source: 'qr' })}
-                      className="py-1 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium text-xs flex items-center gap-1 transition-colors"
-                      title="Simular leitura pela câmera do QR Code"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>QR</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         )}
       </main>
 
@@ -702,6 +699,16 @@ export default function App() {
       />
 
       {/* Modals */}
+      {isCreatePlaqueOpen && (
+        <CreatePlaqueModal
+          isOpen={isCreatePlaqueOpen}
+          onClose={() => setIsCreatePlaqueOpen(false)}
+          currentUser={currentUser}
+          clients={users}
+          onCreatePlaque={handleCreatePlaque}
+        />
+      )}
+
       {editingPlaque && (
         <PlaqueEditorModal
           plaque={editingPlaque}

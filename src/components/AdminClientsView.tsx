@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Plus, ShieldCheck, Smartphone, Layers, Check, AlertCircle } from 'lucide-react';
+import { Users, Plus, ShieldCheck, Smartphone, Layers, Check, AlertCircle, Building2 } from 'lucide-react';
 import { Plaque, UserProfile } from '../types';
 
 interface AdminClientsViewProps {
@@ -45,7 +45,7 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
     slug: '',
     title: '',
     targetType: 'google_review' as Plaque['targetType'],
-    targetUrl: 'https://g.page/r/.../review',
+    targetUrl: 'https://g.page/r/Cbistro-royal/review',
   });
 
   const [saving, setSaving] = useState(false);
@@ -84,7 +84,7 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
         slug: '',
         title: '',
         targetType: 'google_review',
-        targetUrl: 'https://g.page/r/.../review',
+        targetUrl: 'https://g.page/r/Cbistro-royal/review',
       });
       setShowNewPlaqueModal(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -97,51 +97,51 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-24 max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
+    <div className="flex flex-col gap-6 pb-28 max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">
-            Gestão GoldFlow Master
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
+            Painel do Administrador GoldFlow
           </span>
           <h1 className="font-heading text-xl sm:text-2xl font-bold text-white">
-            Clientes e Placas Vinculadas
+            Clientes & Lojas Cadastradas
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Gerenciamento completo de estabelecimentos, limites e emissão de novas placas
+          <p className="text-xs text-slate-400 mt-0.5">
+            Gerencie estabelecimentos, permissões isoladas (RLS) e emita novas placas
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setShowNewPlaqueModal(true)}
-            className="py-2 px-3 rounded-xl bg-[#1c1c20] hover:bg-[#27272e] text-zinc-100 text-xs font-semibold flex items-center gap-1.5 border border-[#27272a] transition-all"
+            className="py-3 px-4 rounded-2xl bg-[#0b1528] hover:bg-[#12213d] text-slate-100 text-xs sm:text-sm font-bold flex items-center gap-2 border border-[#1b2f52] transition-all"
           >
-            <Plus className="w-4 h-4 text-red-500" />
+            <Plus className="w-4 h-4 text-blue-400" />
             <span>Emitir Nova Placa</span>
           </button>
 
           <button
             onClick={() => setShowNewClientModal(true)}
-            className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-red-950/40 transition-all"
+            className="py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-950/60 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Plus className="w-4 h-4" />
+            <Building2 className="w-4 h-4" />
             <span>Cadastrar Cliente</span>
           </button>
         </div>
       </div>
 
       {success && (
-        <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-300 flex items-center gap-2">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-800 text-xs sm:text-sm text-emerald-300 flex items-center gap-2.5">
+          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{success}</span>
         </div>
       )}
 
       {error && (
-        <div className="p-3 rounded-xl bg-red-950/60 border border-red-800 text-xs text-red-300 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+        <div className="p-4 rounded-2xl bg-red-950/70 border border-red-800 text-xs sm:text-sm text-red-300 flex items-center gap-2.5">
+          <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -158,66 +158,66 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
           return (
             <div
               key={client.id}
-              className="rounded-2xl bg-[#121214] border border-[#27272a] p-5 flex flex-col gap-4 shadow-lg"
+              className="rounded-3xl bg-[#0b1528] border border-[#1b2f52] p-5 sm:p-6 flex flex-col gap-4 shadow-xl"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="font-heading font-bold text-base text-white truncate">
+                  <h3 className="font-heading font-extrabold text-base sm:text-lg text-white truncate">
                     {client.companyName}
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Responsável: <span className="text-zinc-200">{client.fullName}</span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Responsável: <span className="text-slate-200 font-semibold">{client.fullName}</span>
                   </p>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-950/60 text-red-300 border border-red-900/60 shrink-0">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-950 text-blue-300 border border-blue-800 shrink-0">
                   {clientPlaques.length} Placa(s)
                 </span>
               </div>
 
               {/* Contact details */}
-              <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400 bg-[#0a0a0c] p-3 rounded-xl border border-[#27272a]">
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 bg-[#070d1a] p-3.5 rounded-2xl border border-[#1b2f52]">
                 <div>
-                  <span className="text-[10px] uppercase text-zinc-400">E-mail:</span>
-                  <div className="text-zinc-200 truncate">{client.email}</div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">E-mail:</span>
+                  <div className="text-slate-200 font-semibold truncate mt-0.5">{client.email}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase text-zinc-400">WhatsApp:</span>
-                  <div className="text-zinc-200 truncate">{client.phone}</div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">WhatsApp:</span>
+                  <div className="text-slate-200 font-semibold truncate mt-0.5">{client.phone}</div>
                 </div>
-                <div className="col-span-2 pt-1 border-t border-[#1f1f23] flex items-center justify-between">
-                  <span className="text-zinc-400">Total de Acessos Acumulados:</span>
-                  <span className="font-mono text-white font-bold">{totalClientScans}</span>
+                <div className="col-span-2 pt-2 border-t border-[#16243f] flex items-center justify-between">
+                  <span className="text-slate-400">Total de Acessos Acumulados:</span>
+                  <span className="font-mono text-white font-extrabold text-sm">{totalClientScans}</span>
                 </div>
               </div>
 
               {/* Assigned Plaques List */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-zinc-300">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold text-slate-300">
                   Placas Ativas Deste Cliente:
                 </span>
                 {clientPlaques.length === 0 ? (
-                  <p className="text-xs text-zinc-400 italic">
+                  <p className="text-xs text-slate-400 italic">
                     Nenhuma placa vinculada ainda.
                   </p>
                 ) : (
-                  <div className="divide-y divide-[#1f1f23] rounded-xl bg-[#0a0a0c] border border-[#27272a] overflow-hidden">
+                  <div className="divide-y divide-[#16243f] rounded-2xl bg-[#070d1a] border border-[#1b2f52] overflow-hidden">
                     {clientPlaques.map((plaque) => (
                       <div
                         key={plaque.id}
-                        className="p-2.5 flex items-center justify-between gap-2 text-xs hover:bg-[#16161a] transition-colors"
+                        className="p-3 flex items-center justify-between gap-2 text-xs hover:bg-[#0e192f] transition-colors"
                       >
                         <div className="min-w-0">
-                          <div className="font-medium text-white truncate">
+                          <div className="font-bold text-white truncate">
                             {plaque.title}
                           </div>
-                          <div className="font-mono text-[11px] text-zinc-400 truncate">
+                          <div className="font-mono text-[11px] text-slate-400 truncate">
                             /r/{plaque.slug} · {plaque.totalNfcScans} NFC / {plaque.totalQrScans} QR
                           </div>
                         </div>
 
                         <button
                           onClick={() => onSelectPlaqueForEdit(plaque)}
-                          className="px-2 py-1 rounded bg-[#1e1e24] text-zinc-200 hover:text-white text-[11px] font-medium border border-[#27272a] shrink-0"
+                          className="px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs font-bold border border-blue-500/30 shrink-0 transition-colors"
                         >
                           Gerenciar
                         </button>
@@ -233,57 +233,57 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
 
       {/* Modal: Cadastrar Novo Cliente */}
       {showNewClientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#121214] border border-[#27272a] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#0b1528] border border-[#1b2f52] rounded-3xl p-6 flex flex-col gap-4 shadow-2xl shadow-blue-950/60">
             <h2 className="font-heading text-lg font-bold text-white">
               Cadastrar Novo Cliente GoldFlow
             </h2>
             <form onSubmit={handleCreateClientSubmit} className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Nome da Empresa / Ponto:</label>
+                <label className="text-xs text-slate-300 font-bold">Nome da Empresa / Ponto:</label>
                 <input
                   type="text"
                   required
                   value={clientForm.companyName}
                   onChange={(e) => setClientForm({ ...clientForm, companyName: e.target.value })}
                   placeholder="Ex: Bar do Urso Augusta"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Nome do Responsável:</label>
+                <label className="text-xs text-slate-300 font-bold">Nome do Responsável:</label>
                 <input
                   type="text"
                   required
                   value={clientForm.fullName}
                   onChange={(e) => setClientForm({ ...clientForm, fullName: e.target.value })}
                   placeholder="Ex: Carlos Eduardo"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">E-mail para Login:</label>
+                <label className="text-xs text-slate-300 font-bold">E-mail para Acesso:</label>
                 <input
                   type="email"
                   required
                   value={clientForm.email}
                   onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
                   placeholder="carlos@bardourso.com.br"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Telefone / WhatsApp:</label>
+                <label className="text-xs text-slate-300 font-bold">Telefone / WhatsApp:</label>
                 <input
                   type="text"
                   required
                   value={clientForm.phone}
                   onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })}
                   placeholder="(11) 99876-5432"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
@@ -291,14 +291,14 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowNewClientModal(false)}
-                  className="px-4 py-2 text-xs text-zinc-400 hover:text-white"
+                  className="px-4 py-2.5 text-xs text-slate-400 hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-950 transition-all"
                 >
                   {saving ? 'Cadastrando...' : 'Confirmar Cadastro'}
                 </button>
@@ -310,18 +310,18 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
 
       {/* Modal: Emitir Nova Placa */}
       {showNewPlaqueModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#121214] border border-[#27272a] rounded-2xl p-5 flex flex-col gap-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#0b1528] border border-[#1b2f52] rounded-3xl p-6 flex flex-col gap-4 shadow-2xl shadow-blue-950/60">
             <h2 className="font-heading text-lg font-bold text-white">
               Emitir Nova Placa NFC
             </h2>
             <form onSubmit={handleCreatePlaqueSubmit} className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Cliente Proprietário:</label>
+                <label className="text-xs text-slate-300 font-bold">Cliente Proprietário:</label>
                 <select
                   value={plaqueForm.clientId}
                   onChange={(e) => setPlaqueForm({ ...plaqueForm, clientId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 >
                   {clientUsers.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -332,44 +332,54 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Título da Placa (Localização Física):</label>
+                <label className="text-xs text-slate-300 font-bold">Título da Placa (Localização Física):</label>
                 <input
                   type="text"
                   required
                   value={plaqueForm.title}
-                  onChange={(e) => setPlaqueForm({ ...plaqueForm, title: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const autoSlug = val
+                      .toLowerCase()
+                      .normalize('NFD')
+                      .replace(/[\u0300-\u036f]/g, '')
+                      .replace(/[^a-z0-9]/g, '-')
+                      .replace(/-+/g, '-')
+                      .replace(/^-|-$/g, '');
+                    setPlaqueForm({ ...plaqueForm, title: val, slug: autoSlug });
+                  }}
                   placeholder="Ex: Totem Entrada Principal"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">Slug do Link Permanente (/r/...):</label>
-                <div className="flex items-center rounded-lg bg-[#0a0a0c] border border-[#27272a] px-3 mt-1 focus-within:border-red-500">
-                  <span className="text-xs text-zinc-500 font-mono">/r/</span>
+                <label className="text-xs text-slate-300 font-bold">Slug do Link Permanente (/r/...):</label>
+                <div className="flex items-center rounded-xl bg-[#070d1a] border border-[#1b2f52] px-3 mt-1 focus-within:border-blue-500">
+                  <span className="text-xs text-slate-400 font-mono">/r/</span>
                   <input
                     type="text"
                     required
                     value={plaqueForm.slug}
-                    onChange={(e) => setPlaqueForm({ ...plaqueForm, slug: e.target.value })}
+                    onChange={(e) => setPlaqueForm({ ...plaqueForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') })}
                     placeholder="bar-do-urso-entrada"
-                    className="w-full px-1 py-2 bg-transparent text-sm text-white font-mono focus:outline-none"
+                    className="w-full px-1.5 py-2.5 bg-transparent text-sm text-white font-mono focus:outline-none"
                   />
                 </div>
-                <span className="text-[10px] text-zinc-400">
-                  Este link será gravado no chip NFC e nunca precisará ser alterado fisicamente.
+                <span className="text-[10px] text-slate-400">
+                  Gravado no chip NFC; nunca precisará ser alterado fisicamente.
                 </span>
               </div>
 
               <div>
-                <label className="text-xs text-zinc-300 font-medium">URL Inicial de Destino:</label>
+                <label className="text-xs text-slate-300 font-bold">URL Inicial de Destino:</label>
                 <input
                   type="url"
                   required
                   value={plaqueForm.targetUrl}
                   onChange={(e) => setPlaqueForm({ ...plaqueForm, targetUrl: e.target.value })}
                   placeholder="https://g.page/r/.../review"
-                  className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 mt-1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070d1a] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 mt-1"
                 />
               </div>
 
@@ -377,14 +387,14 @@ export const AdminClientsView: React.FC<AdminClientsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowNewPlaqueModal(false)}
-                  className="px-4 py-2 text-xs text-zinc-400 hover:text-white"
+                  className="px-4 py-2.5 text-xs text-slate-400 hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-xs"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-950 transition-all"
                 >
                   {saving ? 'Gravando...' : 'Emitir Placa'}
                 </button>

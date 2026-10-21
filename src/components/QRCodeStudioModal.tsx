@@ -16,7 +16,6 @@ import {
   Instagram,
   Star,
   Globe,
-  RefreshCw,
   Smartphone
 } from 'lucide-react';
 import { Plaque, UserProfile } from '../types';
@@ -59,7 +58,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
   const [downloadingSvg, setDownloadingSvg] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [colorStyle, setColorStyle] = useState<'classic' | 'crimson'>('classic');
+  const [colorStyle, setColorStyle] = useState<'classic' | 'navy'>('classic');
 
   // Permanent Link for the Printed QR Code
   const permanentQrUrl = plaque
@@ -88,7 +87,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
     let isMounted = true;
     setLoading(true);
 
-    const darkColor = colorStyle === 'crimson' ? '#b91c1c' : '#000000';
+    const darkColor = colorStyle === 'navy' ? '#1e3a8a' : '#000000';
     const lightColor = '#ffffff';
 
     Promise.all([
@@ -130,7 +129,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
   const handleDownloadPng = async () => {
     setDownloadingPng(true);
     try {
-      const darkColor = colorStyle === 'crimson' ? '#b91c1c' : '#000000';
+      const darkColor = colorStyle === 'navy' ? '#1e3a8a' : '#000000';
       const filename = plaque ? `goldflow-qr-dinamico-${plaque.slug}-1024px` : 'goldflow-qr-code-1024px';
       await downloadQRCodePNG(permanentQrUrl, filename, {
         width: 1024,
@@ -145,7 +144,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
   const handleDownloadSvg = async () => {
     setDownloadingSvg(true);
     try {
-      const darkColor = colorStyle === 'crimson' ? '#b91c1c' : '#000000';
+      const darkColor = colorStyle === 'navy' ? '#1e3a8a' : '#000000';
       const filename = plaque ? `goldflow-qr-dinamico-${plaque.slug}-vector` : 'goldflow-qr-code-vector';
       await downloadQRCodeSVG(permanentQrUrl, filename, {
         darkColor,
@@ -178,61 +177,61 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-xl bg-[#121214] border border-[#27272a] rounded-t-3xl sm:rounded-2xl max-h-[92vh] overflow-y-auto flex flex-col shadow-2xl">
+      <div className="w-full sm:max-w-xl bg-[#0b1528] border border-[#1e355b] rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto flex flex-col shadow-2xl shadow-blue-950/60">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[#27272a] flex items-center justify-between sticky top-0 bg-[#121214] z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-red-600/10 text-red-500 border border-red-500/20">
-              <QrCode className="w-5 h-5" />
+        <div className="p-5 sm:p-6 border-b border-[#1b2f52] flex items-center justify-between sticky top-0 bg-[#0b1528] z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+              <QrCode className="w-6 h-6 text-blue-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-heading text-lg font-bold text-white">
+                <h2 className="font-heading text-xl font-bold text-white">
                   QR Code Dinâmico GoldFlow
                 </h2>
-                <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  Link Permanente
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                  Link Fixo
                 </span>
               </div>
-              <p className="text-xs text-zinc-400">
-                O QR Code impresso nunca muda: altere o destino quantas vezes quiser sem reimprimir
+              <p className="text-xs text-slate-400 mt-0.5">
+                O QR Code impresso nunca muda: altere o link no painel sem reimprimir
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-[#1f1f23] transition-colors"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-[#15274d] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 flex flex-col gap-5 items-center">
+        <div className="p-5 sm:p-6 flex flex-col gap-5 items-center">
           {/* Permanent Link Banner */}
           {plaque && (
-            <div className="w-full bg-[#0a0a0c] border border-[#27272a] rounded-xl p-3.5 flex flex-col gap-2">
+            <div className="w-full bg-[#070d1a] border border-[#1b2f52] rounded-2xl p-4 flex flex-col gap-2.5">
               <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-white truncate">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white truncate text-sm">
                     Placa: {plaque.title}
                   </span>
                 </div>
                 <button
                   onClick={copyPermanentLink}
-                  className="text-red-400 hover:text-red-300 text-[11px] font-medium flex items-center gap-1"
+                  className="text-blue-400 hover:text-blue-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
                 >
-                  {copiedLink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedLink ? 'Copiado!' : 'Copiar Link Permanente'}</span>
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Copiado!' : 'Copiar Link'}</span>
                 </button>
               </div>
 
               {/* Permanent short URL */}
-              <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#141418] border border-[#27272a]">
+              <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-[#0b1528] border border-[#1b2f52]">
                 <div className="min-w-0">
-                  <span className="text-[10px] text-zinc-500 uppercase font-semibold block">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
                     Link Permanente Gravado no QR Code (Impresso):
                   </span>
-                  <span className="font-mono text-xs text-white truncate block">
+                  <span className="font-mono text-xs sm:text-sm text-white font-bold truncate block">
                     {permanentQrUrl}
                   </span>
                 </div>
@@ -243,18 +242,13 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                       onClose();
                       onSimulateScan(plaque.slug, 'qr');
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-[#1f1f23] hover:bg-[#27272a] text-zinc-200 text-xs font-medium border border-[#27272a] shrink-0 flex items-center gap-1"
-                    title="Simular leitura da câmera do QR Code"
+                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-md shadow-blue-950 transition-all"
+                    title="Simular leitura pela câmera do celular"
                   >
-                    <Smartphone className="w-3 h-3 text-red-400" />
-                    <span>Testar Leitura</span>
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Testar</span>
                   </button>
                 )}
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-[#1a1a1e]">
-                <span className="truncate">NFC desta placa: <strong className="text-zinc-300 font-mono">{plaque.targetUrl}</strong></span>
-                <span className="text-zinc-400 shrink-0 ml-2">(NFC e QR Code independentes)</span>
               </div>
             </div>
           )}
@@ -262,9 +256,9 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
           {/* Dynamic Destination Input Box */}
           <div className="w-full flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
-                <Link2 className="w-4 h-4 text-red-500" />
-                <span>Destino Atual do Redirecionamento (Cole Qualquer URL):</span>
+              <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Link2 className="w-4 h-4 text-blue-400" />
+                <span>Destino Atual (Cole Qualquer Link):</span>
               </label>
 
               {formattedDestinationUrl && (
@@ -272,76 +266,76 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                   href={formattedDestinationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-red-400 hover:text-red-300 text-[11px] flex items-center gap-1 font-medium transition-colors"
-                  title="Abrir destino em nova aba para testar"
+                  className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-bold transition-colors"
+                  title="Abrir destino em nova aba"
                 >
                   <span>Testar Destino</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
             </div>
 
-            <div className="flex items-center rounded-xl bg-[#0a0a0c] border border-[#27272a] px-3 focus-within:border-red-500 transition-colors">
+            <div className="flex items-center rounded-2xl bg-[#070d1a] border border-[#1b2f52] px-3.5 focus-within:border-blue-500 transition-colors">
               <input
                 type="text"
                 value={qrInputUrl}
                 onChange={(e) => setQrInputUrl(e.target.value)}
                 placeholder="Ex: https://wa.me/5511... ou https://instagram.com/... ou https://g.page/..."
-                className="w-full py-2.5 bg-transparent text-xs sm:text-sm text-white font-mono placeholder:text-zinc-600 focus:outline-none"
+                className="w-full py-3 bg-transparent text-xs sm:text-sm text-white font-mono placeholder:text-slate-500 focus:outline-none"
               />
             </div>
 
             {/* Quick Preset Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] text-zinc-500 font-medium">Modelos rápidos:</span>
+              <span className="text-[11px] text-slate-400 font-bold">Atalhos rápidos:</span>
               <button
                 type="button"
                 onClick={() => applyPreset('whatsapp')}
-                className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-emerald-400 border border-[#27272a] text-[11px] flex items-center gap-1 font-medium transition-colors"
+                className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-emerald-400 border border-[#1b2f52] text-xs flex items-center gap-1 font-bold transition-colors"
               >
-                <MessageSquare className="w-3 h-3" />
+                <MessageSquare className="w-3.5 h-3.5" />
                 WhatsApp
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('instagram')}
-                className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-pink-400 border border-[#27272a] text-[11px] flex items-center gap-1 font-medium transition-colors"
+                className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-pink-400 border border-[#1b2f52] text-xs flex items-center gap-1 font-bold transition-colors"
               >
-                <Instagram className="w-3 h-3" />
+                <Instagram className="w-3.5 h-3.5" />
                 Instagram
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('google')}
-                className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-amber-400 border border-[#27272a] text-[11px] flex items-center gap-1 font-medium transition-colors"
+                className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-amber-400 border border-[#1b2f52] text-xs flex items-center gap-1 font-bold transition-colors"
               >
-                <Star className="w-3 h-3" />
-                Google Avaliações
+                <Star className="w-3.5 h-3.5" />
+                Google
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('cardapio')}
-                className="px-2 py-0.5 rounded-lg bg-[#18181b] hover:bg-[#222226] text-sky-400 border border-[#27272a] text-[11px] flex items-center gap-1 font-medium transition-colors"
+                className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-sky-400 border border-[#1b2f52] text-xs flex items-center gap-1 font-bold transition-colors"
               >
-                <Globe className="w-3 h-3" />
-                Cardápio / Site
+                <Globe className="w-3.5 h-3.5" />
+                Cardápio
               </button>
             </div>
           </div>
 
           {/* Save Destination to Supabase / Database */}
           {plaque && (
-            <div className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-[#16161a] border border-[#27272a]">
+            <div className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52]">
               <div className="text-xs">
-                <div className="font-semibold text-white">
-                  {saveSuccess ? 'Salvo no Supabase com Sucesso!' : isLinkModified ? 'Destino Alterado (Pendente de Salvar)' : 'Destino Ativo e Sincronizado'}
+                <div className="font-bold text-white text-sm">
+                  {saveSuccess ? 'Salvo com Sucesso!' : isLinkModified ? 'Destino Alterado (Pendente de Salvar)' : 'Destino Sincronizado'}
                 </div>
-                <div className="text-[11px] text-zinc-400">
+                <div className="text-[11px] text-slate-400 mt-0.5">
                   {saveSuccess 
-                    ? 'O QR Code impresso já está redirecionando para a nova URL.' 
+                    ? 'O QR Code impresso já está apontando para o novo endereço.' 
                     : isLinkModified 
-                    ? 'Clique para salvar. O QR Code físico impresso continuará exatamente igual.'
-                    : 'Ao trocar a URL acima, basta salvar para redirecionar sem reimprimir.'}
+                    ? 'Clique no botão ao lado para salvar. Não precisa reimprimir o QR.'
+                    : 'Ao trocar a URL acima, basta salvar para atualizar na hora.'}
                 </div>
               </div>
 
@@ -349,22 +343,22 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                 type="button"
                 onClick={handleSaveToDatabase}
                 disabled={saving || !isLinkModified}
-                className={`py-2 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shrink-0 ${
+                className={`min-h-[46px] py-2.5 px-5 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-md shrink-0 ${
                   saveSuccess
                     ? 'bg-emerald-600 text-white'
                     : isLinkModified
-                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-950/40 animate-pulse'
-                    : 'bg-[#27272a] text-zinc-400 cursor-not-allowed'
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/60 animate-pulse hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-[#15274d] text-slate-400 cursor-not-allowed'
                 }`}
               >
                 {saveSuccess ? (
                   <>
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-4 h-4" />
                     <span>Salvo!</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4" />
                     <span>{saving ? 'Salvando...' : 'Salvar Novo Destino'}</span>
                   </>
                 )}
@@ -372,12 +366,12 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
             </div>
           )}
 
-          {/* QR Code Graphic Frame (Permanent Visual) */}
-          <div className="relative p-5 rounded-2xl bg-white shadow-xl shadow-black/60 flex items-center justify-center max-w-[240px] aspect-square w-full">
+          {/* QR Code Graphic Frame */}
+          <div className="relative p-5 rounded-3xl bg-white shadow-2xl shadow-black/80 flex items-center justify-center max-w-[240px] aspect-square w-full">
             {loading ? (
-              <div className="flex flex-col items-center justify-center gap-2 text-zinc-600">
-                <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs font-medium">Renderizando QR...</span>
+              <div className="flex flex-col items-center justify-center gap-2 text-slate-600">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-bold">Renderizando QR...</span>
               </div>
             ) : svgContent ? (
               <div
@@ -393,68 +387,54 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
             ) : null}
           </div>
 
-          {/* Dynamic QR Proof Box */}
-          <div className="w-full p-3 rounded-xl bg-[#0a0a0c] border border-[#27272a] text-center">
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full mb-1">
-              <Check className="w-3 h-3" />
-              QR Code Dinâmico Permanente
-            </span>
-            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-              Este QR Code aponta para <strong className="text-zinc-200 font-mono">/q/{plaque?.slug}</strong>. 
-              Qualquer pessoa que escanear a placa impressa será redirecionada automaticamente para:
-              <br />
-              <span className="text-red-400 font-mono font-medium break-all">{formattedDestinationUrl}</span>
-            </p>
-          </div>
-
           {/* Style Selector */}
-          <div className="w-full flex items-center justify-between text-xs p-2.5 rounded-xl bg-[#0a0a0c] border border-[#27272a]">
-            <span className="text-zinc-400 font-medium">Estilo Visual do QR:</span>
-            <div className="flex items-center gap-1">
+          <div className="w-full flex items-center justify-between text-xs p-3 rounded-2xl bg-[#070d1a] border border-[#1b2f52]">
+            <span className="text-slate-300 font-bold">Cor de Impressão do QR:</span>
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setColorStyle('classic')}
-                className={`py-1 px-2.5 rounded-lg font-medium transition-colors ${
+                className={`py-1.5 px-3 rounded-xl font-bold transition-colors ${
                   colorStyle === 'classic'
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Preto Padrão
               </button>
               <button
                 type="button"
-                onClick={() => setColorStyle('crimson')}
-                className={`py-1 px-2.5 rounded-lg font-medium transition-colors ${
-                  colorStyle === 'crimson'
-                    ? 'bg-red-950 text-red-300 border border-red-900/60'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                onClick={() => setColorStyle('navy')}
+                className={`py-1.5 px-3 rounded-xl font-bold transition-colors ${
+                  colorStyle === 'navy'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Vermelho GoldFlow
+                Azul Marinho
               </button>
             </div>
           </div>
 
           {/* Download Action Buttons */}
-          <div className="w-full flex flex-col sm:flex-row gap-2.5 pt-1">
+          <div className="w-full flex flex-col sm:flex-row gap-3 pt-1">
             <button
               onClick={handleDownloadPng}
               disabled={downloadingPng || loading}
-              className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-red-950/40 disabled:opacity-50 transition-all"
+              className="flex-1 min-h-[50px] py-3.5 px-5 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
             >
-              <ImageIcon className="w-4 h-4" />
-              <span>{downloadingPng ? 'Baixando...' : 'Baixar PNG (1024px)'}</span>
+              <ImageIcon className="w-4 h-4 text-slate-900" />
+              <span>{downloadingPng ? 'Baixando Imagem...' : 'Baixar Imagem PNG (1024px)'}</span>
             </button>
 
             <button
               onClick={handleDownloadSvg}
               disabled={downloadingSvg || loading}
-              className="flex-1 py-3 px-4 rounded-xl bg-[#1c1c20] hover:bg-[#27272e] text-zinc-100 border border-[#27272a] text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
-              title="Arquivo vetorial puro para plotter de corte ou gravação a laser"
+              className="flex-1 min-h-[50px] py-3.5 px-5 rounded-2xl bg-[#12213d] hover:bg-[#1a3058] text-white border border-[#1b2f52] text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              title="Arquivo vetorial puro para corte a laser em acrílico ou gráfica"
             >
-              <FileCode className="w-4 h-4 text-emerald-400" />
-              <span>{downloadingSvg ? 'Exportando...' : 'Baixar SVG Vetorial'}</span>
+              <FileCode className="w-4 h-4 text-blue-400" />
+              <span>{downloadingSvg ? 'Exportando Vetor...' : 'Baixar Vetor SVG (Gráfica)'}</span>
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, Globe, MessageSquare, Instagram, Star, Utensils, Link2, ExternalLink } from 'lucide-react';
+import { X, Check, Globe, MessageSquare, Instagram, Star, Utensils, Link2, ExternalLink, Radio, ArrowRight, Sparkles } from 'lucide-react';
 import { Plaque, TargetType } from '../types';
 
 interface PlaqueEditorModalProps {
@@ -28,10 +28,10 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
   // Specific preset state helpers
   const [waPhone, setWaPhone] = useState(plaque.targetParams?.whatsappNumber || '5511999998888');
   const [waMessage, setWaMessage] = useState(
-    plaque.targetParams?.whatsappMessage || 'Olá! Vi a placa no balcão e gostaria de atendimento.'
+    plaque.targetParams?.whatsappMessage || 'Olá! Vi a placa na mesa e gostaria de atendimento.'
   );
   const [instaHandle, setInstaHandle] = useState(
-    plaque.targetParams?.instagramHandle || 'bistroroyal'
+    plaque.targetParams?.instagramHandle || 'minhaloja'
   );
   const [googleReviewLink, setGoogleReviewLink] = useState(
     plaque.targetType === 'google_review' ? plaque.targetUrl : 'https://g.page/r/Cbistro-royal/review'
@@ -70,14 +70,14 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
     setError(null);
 
     if (!computedUrl) {
-      setError('Por favor, defina uma URL válida de destino.');
+      setError('Por favor, defina um endereço válido de destino.');
       return;
     }
 
     try {
       new URL(computedUrl);
     } catch {
-      setError('A URL calculada é inválida. Certifique-se de incluir http:// ou https://');
+      setError('A URL informada é inválida. Certifique-se de incluir http:// ou https://');
       return;
     }
 
@@ -99,75 +99,82 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
 
   const presets = [
     {
-      type: 'google_review' as TargetType,
-      label: 'Google Avaliações',
-      desc: 'Direto para tela de 5 estrelas do Google Meu Negócio',
-      icon: Star,
-      iconColor: 'text-amber-400',
-    },
-    {
       type: 'whatsapp' as TargetType,
-      label: 'WhatsApp',
-      desc: 'Abre conversa com mensagem inicial personalizada',
+      label: 'WhatsApp Oficial',
+      desc: 'Inicia conversa com mensagem automática',
       icon: MessageSquare,
       iconColor: 'text-emerald-400',
     },
     {
+      type: 'google_review' as TargetType,
+      label: 'Google Avaliações',
+      desc: 'Link de 5 estrelas do Google Meu Negócio',
+      icon: Star,
+      iconColor: 'text-amber-400',
+    },
+    {
       type: 'instagram' as TargetType,
       label: 'Instagram',
-      desc: 'Abre perfil oficial da sua loja no app do Instagram',
+      desc: 'Abre o perfil oficial da sua loja no app',
       icon: Instagram,
       iconColor: 'text-pink-400',
     },
     {
       type: 'menu' as TargetType,
       label: 'Cardápio Digital',
-      desc: 'Cardápio em PDF, catálogo online ou app de pedidos',
+      desc: 'Catálogo online, PDF ou iFood',
       icon: Utensils,
       iconColor: 'text-sky-400',
     },
     {
       type: 'website' as TargetType,
-      label: 'Site / Linktree',
-      desc: 'Página institucional ou agregador de links',
+      label: 'Site Oficial / Linktree',
+      desc: 'Página da empresa ou link de divulgação',
       icon: Globe,
-      iconColor: 'text-purple-400',
+      iconColor: 'text-blue-400',
     },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-lg bg-[#121214] border border-[#27272a] rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full sm:max-w-xl bg-[#0b1528] border border-[#1e355b] rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto flex flex-col shadow-2xl shadow-blue-950/60">
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-[#27272a] flex items-center justify-between sticky top-0 bg-[#121214] z-10">
-          <div>
-            <span className="text-xs text-red-500 font-semibold tracking-wider uppercase">
-              Link Permanente: /r/{plaque.slug}
-            </span>
-            <h2 className="font-heading text-lg font-bold text-white">
-              Alterar Destino da Placa
-            </h2>
+        <div className="p-5 sm:p-6 border-b border-[#1b2f52] flex items-center justify-between sticky top-0 bg-[#0b1528] z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+              <Radio className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <span className="text-[11px] text-blue-400 font-extrabold uppercase tracking-wider block">
+                Link Físico Gravado: /r/{plaque.slug}
+              </span>
+              <h2 className="font-heading text-xl font-bold text-white">
+                Trocar Destino do Chip NFC
+              </h2>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-[#1f1f23] transition-colors"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-[#15274d] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleFormSubmit} className="p-4 sm:p-5 flex flex-col gap-5">
+        <form onSubmit={handleFormSubmit} className="p-5 sm:p-6 flex flex-col gap-5">
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/60 border border-red-800 text-xs text-red-200">
+            <div className="p-4 rounded-2xl bg-red-950/70 border border-red-800 text-xs text-red-200">
               {error}
             </div>
           )}
 
-          {/* Preset Buttons Grid */}
+          {/* Passo 1: Escolha do Modelo */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-zinc-300">
-              Escolha o Tipo de Destino:
-            </label>
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px]">1</span>
+              <span>Escolha o modelo de destino desejado:</span>
+            </div>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {presets.map((preset) => {
                 const Icon = preset.icon;
@@ -177,19 +184,19 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
                     key={preset.type}
                     type="button"
                     onClick={() => setSelectedType(preset.type)}
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all ${
+                    className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-[#1c1c22] border-red-500/80 shadow-md shadow-red-950/20'
-                        : 'bg-[#0e0e10] border-[#27272a] hover:border-zinc-700'
+                        ? 'bg-blue-600/20 border-blue-400 shadow-md shadow-blue-950/40 ring-1 ring-blue-400'
+                        : 'bg-[#070d1a] border-[#1b2f52] hover:border-slate-500'
                     }`}
                   >
                     <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${preset.iconColor}`} />
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-white flex items-center gap-1.5">
                         {preset.label}
-                        {isSelected && <Check className="w-3.5 h-3.5 text-red-400" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
                       </div>
-                      <p className="text-[11px] text-zinc-400 leading-tight mt-0.5">
+                      <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
                         {preset.desc}
                       </p>
                     </div>
@@ -199,55 +206,60 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Preset Specific Inputs */}
-          <div className="p-3.5 rounded-xl bg-[#0a0a0c] border border-[#27272a] flex flex-col gap-3">
+          {/* Passo 2: Configuração dos Dados */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#070d1a] border border-[#1b2f52] flex flex-col gap-3.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px]">2</span>
+              <span>Preencha as informações do novo destino:</span>
+            </div>
+
             {selectedType === 'whatsapp' && (
               <>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-300 font-medium">
-                    Número do WhatsApp (com DDI e DDD):
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-300 font-bold">
+                    Telefone WhatsApp (com DDI e DDD):
                   </label>
                   <input
                     type="text"
                     value={waPhone}
                     onChange={(e) => setWaPhone(e.target.value)}
                     placeholder="Ex: 5511999998888"
-                    className="w-full px-3 py-2 rounded-lg bg-[#18181b] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500"
+                    className="w-full px-4 py-3 rounded-2xl bg-[#0b1528] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
                     required
                   />
-                  <span className="text-[10px] text-zinc-400">
-                    Insira somente números (55 para Brasil + DDD + Telefone).
+                  <span className="text-[11px] text-slate-400">
+                    Apenas números (55 para Brasil + DDD + Telefone).
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-300 font-medium">
-                    Mensagem Inicial Pronta:
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-300 font-bold">
+                    Mensagem que aparecerá pronta para o cliente:
                   </label>
                   <textarea
                     rows={2}
                     value={waMessage}
                     onChange={(e) => setWaMessage(e.target.value)}
                     placeholder="Ex: Olá! Encostei na placa NFC e gostaria de atendimento."
-                    className="w-full px-3 py-2 rounded-lg bg-[#18181b] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500 resize-none"
+                    className="w-full px-4 py-3 rounded-2xl bg-[#0b1528] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
                   />
                 </div>
               </>
             )}
 
             {selectedType === 'instagram' && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-300 font-medium">
-                  Usuário do Instagram:
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-300 font-bold">
+                  Nome de usuário no Instagram:
                 </label>
-                <div className="flex items-center rounded-lg bg-[#18181b] border border-[#27272a] px-3 focus-within:border-red-500">
-                  <span className="text-zinc-500 text-sm">@</span>
+                <div className="flex items-center rounded-2xl bg-[#0b1528] border border-[#1b2f52] px-4 focus-within:border-blue-500">
+                  <span className="text-slate-400 font-bold text-sm">@</span>
                   <input
                     type="text"
                     value={instaHandle}
                     onChange={(e) => setInstaHandle(e.target.value)}
-                    placeholder="bistroroyal"
-                    className="w-full px-2 py-2 bg-transparent text-sm text-white focus:outline-none"
+                    placeholder="minhaloja"
+                    className="w-full px-2 py-3 bg-transparent text-sm text-white focus:outline-none font-mono"
                     required
                   />
                 </div>
@@ -255,80 +267,81 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
             )}
 
             {selectedType === 'google_review' && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-300 font-medium">
-                  Link Direto de Avaliação Google:
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-300 font-bold">
+                  Link Direto de Avaliações Google:
                 </label>
                 <input
                   type="url"
                   value={googleReviewLink}
                   onChange={(e) => setGoogleReviewLink(e.target.value)}
                   placeholder="https://g.page/r/.../review"
-                  className="w-full px-3 py-2 rounded-lg bg-[#18181b] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#0b1528] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
                   required
                 />
-                <span className="text-[10px] text-zinc-400">
-                  Dica: No Google Meu Negócio, clique em "Pedir Avaliações" e copie o link direto.
+                <span className="text-[11px] text-slate-400">
+                  Encontrado em: Google Meu Negócio &gt; Solicitar Avaliações.
                 </span>
               </div>
             )}
 
             {(selectedType === 'menu' || selectedType === 'website' || selectedType === 'custom') && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-300 font-medium">
-                  URL de Destino Completa:
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-300 font-bold">
+                  Endereço do Site / Cardápio:
                 </label>
                 <input
                   type="url"
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   placeholder="https://seusite.com.br/cardapio"
-                  className="w-full px-3 py-2 rounded-lg bg-[#18181b] border border-[#27272a] text-sm text-white focus:outline-none focus:border-red-500"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#0b1528] border border-[#1b2f52] text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
                   required
                 />
               </div>
             )}
 
-            {/* Live Destination Preview */}
-            <div className="pt-2 border-t border-[#1f1f23]">
-              <span className="text-[11px] text-zinc-400 font-medium">
-                URL Final de Redirecionamento:
+            {/* Live Preview */}
+            <div className="pt-2 border-t border-[#16243f]">
+              <span className="text-[11px] text-slate-400 font-medium">
+                URL Calculada para o Redirecionamento:
               </span>
-              <div className="mt-1 flex items-center justify-between gap-2 p-2 rounded bg-[#121214] border border-[#27272a]">
-                <span className="text-xs font-mono text-zinc-300 truncate">
-                  {computedUrl || 'Nenhuma URL definida'}
+              <div className="mt-1 flex items-center justify-between gap-2 p-3 rounded-xl bg-[#0b1528] border border-[#1b2f52]">
+                <span className="text-xs font-mono text-slate-200 truncate">
+                  {computedUrl || 'Nenhum endereço informado'}
                 </span>
                 {computedUrl && (
                   <a
                     href={computedUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-red-400 hover:text-red-300 p-1"
+                    className="text-blue-400 hover:text-blue-300 p-1"
                     title="Testar link em nova aba"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-4 h-4" />
                   </a>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Form Actions */}
+          {/* Form Actions with Big Buttons */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-xl bg-transparent hover:bg-[#1f1f23] text-zinc-400 hover:text-white text-xs font-medium transition-colors"
+              className="py-3 px-5 rounded-2xl bg-transparent hover:bg-[#15274d] text-slate-300 hover:text-white text-xs font-bold transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs transition-all shadow-lg shadow-red-950/40 disabled:opacity-50"
+              className="py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-blue-950/60 disabled:opacity-50 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
             >
-              {saving ? 'Gravando Alteração...' : 'Salvar Novo Destino'}
+              <span>{saving ? 'Gravando Alteração...' : 'Salvar Novo Destino do NFC'}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </form>
