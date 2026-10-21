@@ -50,10 +50,10 @@ export const CreatePlaqueModal: React.FC<CreatePlaqueModalProps> = ({
   const [customUrl, setCustomUrl] = useState('');
   
   // Quick presets
-  const [waPhone, setWaPhone] = useState('5511999998888');
-  const [waMessage, setWaMessage] = useState('Olá! Vi a placa na loja e gostaria de atendimento.');
-  const [instaHandle, setInstaHandle] = useState('minhalojaoficial');
-  const [googleReviewUrl, setGoogleReviewUrl] = useState('https://g.page/r/Cbistro-royal/review');
+  const [waPhone, setWaPhone] = useState('');
+  const [waMessage, setWaMessage] = useState('Olá! Gostaria de mais informações.');
+  const [instaHandle, setInstaHandle] = useState('');
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export const CreatePlaqueModal: React.FC<CreatePlaqueModalProps> = ({
               >
                 {clientList.map((c) => (
                   <option key={c.id} value={c.id} className="bg-[#0b1528]">
-                    {c.companyName} ({c.fullName})
+                    {c.fullName} {c.companyName && c.companyName !== c.fullName ? `(${c.companyName})` : ''}
                   </option>
                 ))}
               </select>

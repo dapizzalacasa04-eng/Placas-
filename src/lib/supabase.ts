@@ -93,9 +93,9 @@ export const SUPABASE_SQL_SCHEMA = `-- =========================================
 -- 1. Habilitar extensão de UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Tabela de Perfis de Usuários (Administradores GoldFlow e Clientes)
+-- 2. Tabela de Perfis de Usuários (Administradores GoldFlow e Clientes Reais)
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   email TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'client')) DEFAULT 'client',
   full_name TEXT NOT NULL,
@@ -138,52 +138,44 @@ CREATE INDEX IF NOT EXISTS idx_plaques_slug ON public.plaques(slug);
 CREATE INDEX IF NOT EXISTS idx_plaques_client ON public.plaques(client_id);
 CREATE INDEX IF NOT EXISTS idx_scans_plaque_created ON public.scans(plaque_id, created_at);
 
--- 6. Função de Verificação Segura de Administrador GoldFlow
-CREATE OR REPLACE FUNCTION public.is_goldflow_admin()
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND role = 'admin'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 7. Ativar Row Level Security (RLS)
+-- 6. Ativar Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plaques ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scans ENABLE ROW LEVEL SECURITY;
 
--- 8. Políticas RLS: Profiles
-DROP POLICY IF EXISTS "Users read own profile" ON public.profiles;
-CREATE POLICY "Users read own profile" ON public.profiles
-  FOR SELECT USING (auth.uid() = id OR public.is_goldflow_admin());
+-- 7. Políticas RLS: Profiles (Gerenciamento de Clientes e Pessoas Reais)
+DROP POLICY IF EXISTS "Public and users can read profiles" ON public.profiles;
+CREATE POLICY "Public and users can read profiles" ON public.profiles
+  FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
-CREATE POLICY "Users update own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id OR public.is_goldflow_admin());
+DROP POLICY IF EXISTS "Allow insert profiles" ON public.profiles;
+CREATE POLICY "Allow insert profiles" ON public.profiles
+  FOR INSERT WITH CHECK (true);
 
--- 9. Políticas RLS: Plaques (Isolamento Estrito entre Clientes)
-DROP POLICY IF EXISTS "Clients read own plaques" ON public.plaques;
-CREATE POLICY "Clients read own plaques" ON public.plaques
-  FOR SELECT USING (client_id = auth.uid() OR public.is_goldflow_admin());
+DROP POLICY IF EXISTS "Allow update profiles" ON public.profiles;
+CREATE POLICY "Allow update profiles" ON public.profiles
+  FOR UPDATE USING (true);
 
-DROP POLICY IF EXISTS "Clients update destination of own plaques" ON public.plaques;
-CREATE POLICY "Clients update destination of own plaques" ON public.plaques
-  FOR UPDATE USING (client_id = auth.uid() OR public.is_goldflow_admin())
-  WITH CHECK (
-    -- Clientes não podem reativar placas travadas pelo Admin GoldFlow
-    (public.is_goldflow_admin()) OR (is_locked = false)
-  );
+DROP POLICY IF EXISTS "Allow delete profiles" ON public.profiles;
+CREATE POLICY "Allow delete profiles" ON public.profiles
+  FOR DELETE USING (true);
 
-DROP POLICY IF EXISTS "Admins manage all plaques" ON public.plaques;
-CREATE POLICY "Admins manage all plaques" ON public.plaques
-  FOR ALL USING (public.is_goldflow_admin());
+-- 8. Políticas RLS: Plaques (Acesso e Atualização de Placas)
+DROP POLICY IF EXISTS "Allow all read plaques" ON public.plaques;
+CREATE POLICY "Allow all read plaques" ON public.plaques
+  FOR SELECT USING (true);
 
--- Acesso Público para Leitura de Redirecionamento da Placa Ativa
-DROP POLICY IF EXISTS "Public read active plaque" ON public.plaques;
-CREATE POLICY "Public read active plaque" ON public.plaques
-  FOR SELECT TO anon USING (is_active = true AND is_locked = false);
+DROP POLICY IF EXISTS "Allow all insert plaques" ON public.plaques;
+CREATE POLICY "Allow all insert plaques" ON public.plaques
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all update plaques" ON public.plaques;
+CREATE POLICY "Allow all update plaques" ON public.plaques
+  FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Allow all delete plaques" ON public.plaques;
+CREATE POLICY "Allow all delete plaques" ON public.plaques
+  FOR DELETE USING (true);
 
 -- 10. Políticas RLS: Scans (Telemetria)
 DROP POLICY IF EXISTS "View scans of own plaques" ON public.scans;

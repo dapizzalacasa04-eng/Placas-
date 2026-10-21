@@ -38,16 +38,18 @@ export const QrDestinationModal: React.FC<QrDestinationModalProps> = ({
   if (!isOpen) return null;
 
   const initialType: TargetType = plaque.qrTargetType || 'google_review';
-  const initialUrl = plaque.qrTargetUrl || plaque.targetUrl || 'https://g.page/r/Cbistro-royal/review';
+  const initialUrl = plaque.qrTargetUrl || plaque.targetUrl || 'https://google.com';
 
   const [selectedType, setSelectedType] = useState<TargetType>(initialType);
   const [customUrl, setCustomUrl] = useState<string>(initialUrl);
 
   // Preset states
-  const [waPhone, setWaPhone] = useState('5511999998888');
-  const [waMessage, setWaMessage] = useState('Olá! Escaneei o QR Code da loja e gostaria de atendimento.');
-  const [instaHandle, setInstaHandle] = useState('sualojaoficial');
-  const [googleReviewLink, setGoogleReviewLink] = useState('https://g.page/r/Cbistro-royal/review');
+  const [waPhone, setWaPhone] = useState('');
+  const [waMessage, setWaMessage] = useState('Olá! Gostaria de mais informações.');
+  const [instaHandle, setInstaHandle] = useState('');
+  const [googleReviewLink, setGoogleReviewLink] = useState(
+    plaque.qrTargetType === 'google_review' ? (plaque.qrTargetUrl || plaque.targetUrl) : ''
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -31,10 +31,10 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
     plaque.targetParams?.whatsappMessage || 'Olá! Vi a placa na mesa e gostaria de atendimento.'
   );
   const [instaHandle, setInstaHandle] = useState(
-    plaque.targetParams?.instagramHandle || 'minhaloja'
+    plaque.targetParams?.instagramHandle || ''
   );
   const [googleReviewLink, setGoogleReviewLink] = useState(
-    plaque.targetType === 'google_review' ? plaque.targetUrl : 'https://g.page/r/Cbistro-royal/review'
+    plaque.targetType === 'google_review' ? plaque.targetUrl : ''
   );
 
   const [saving, setSaving] = useState(false);

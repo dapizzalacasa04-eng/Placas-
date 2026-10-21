@@ -1,101 +1,36 @@
 import { Plaque, ScanEvent, UserProfile, UserRole } from '../types';
 import { getSupabaseClient } from './supabase';
 
-const USERS_STORAGE_KEY = 'goldflow_users_v1';
-const CURRENT_USER_KEY = 'goldflow_current_user_v1';
-const PLAQUES_STORAGE_KEY = 'goldflow_plaques_v1';
-const SCANS_STORAGE_KEY = 'goldflow_scans_v1';
+const USERS_STORAGE_KEY = 'goldflow_users_v2';
+const CURRENT_USER_KEY = 'goldflow_current_user_v2';
+const PLAQUES_STORAGE_KEY = 'goldflow_plaques_v2';
+const SCANS_STORAGE_KEY = 'goldflow_scans_v2';
 
-export const INITIAL_USERS: UserProfile[] = [
-  {
-    id: 'user-admin-1',
-    email: 'admin@goldflow.com.br',
-    role: 'admin',
-    fullName: 'Rodrigo Silva',
-    companyName: 'GoldFlow NFC Central',
-    phone: '(11) 99876-5432',
-    createdAt: '2026-01-10T10:00:00Z',
-  },
-  {
-    id: 'user-client-1',
-    email: 'contato@bistroroyal.com.br',
-    role: 'client',
-    fullName: 'Marcos Lima',
-    companyName: 'Bistrô Royal Gastronomia',
-    phone: '(11) 98765-4321',
-    createdAt: '2026-02-14T14:30:00Z',
-  },
-  {
-    id: 'user-client-2',
-    email: 'gestao@fitprime.com.br',
-    role: 'client',
-    fullName: 'Juliana Rocha',
-    companyName: 'Academia FitPrime Moema',
-    phone: '(11) 97654-3210',
-    createdAt: '2026-03-01T09:15:00Z',
-  },
-];
+// Standard UUID Generator for clean Supabase PostgreSQL compatibility
+export function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
-export const INITIAL_PLAQUES: Plaque[] = [
-  {
-    id: 'plaque-1',
-    clientId: 'user-client-1',
-    clientName: 'Bistrô Royal Gastronomia',
-    slug: 'bistro-royal-balcao',
-    title: 'Totem Balcão Principal & Caixa',
-    targetType: 'google_review',
-    targetUrl: 'https://g.page/r/Cbistro-royal/review',
-    qrTargetType: 'google_review',
-    qrTargetUrl: 'https://g.page/r/Cbistro-royal/review',
-    targetParams: {
-      googlePlaceId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
-    },
-    isActive: true,
-    isLocked: false,
-    totalNfcScans: 284,
-    totalQrScans: 196,
-    createdAt: '2026-02-15T11:00:00Z',
-    updatedAt: '2026-03-12T16:40:00Z',
-  },
-  {
-    id: 'plaque-2',
-    clientId: 'user-client-1',
-    clientName: 'Bistrô Royal Gastronomia',
-    slug: 'bistro-royal-cardapio',
-    title: 'Displays de Mesa — Cardápio & Drinks',
-    targetType: 'menu',
-    targetUrl: 'https://cardapio.bistroroyal.com.br/carta-de-vinhos',
-    qrTargetType: 'instagram',
-    qrTargetUrl: 'https://instagram.com/bistroroyal',
-    isActive: true,
-    isLocked: false,
-    totalNfcScans: 412,
-    totalQrScans: 538,
-    createdAt: '2026-02-18T15:20:00Z',
-    updatedAt: '2026-03-20T18:10:00Z',
-  },
-  {
-    id: 'plaque-3',
-    clientId: 'user-client-2',
-    clientName: 'Academia FitPrime Moema',
-    slug: 'fitprime-checkin',
-    title: 'Placa Recepção — WhatsApp & Check-in',
-    targetType: 'whatsapp',
-    targetUrl: 'https://wa.me/5511976543210?text=Ol%C3%A1%21%20Gostaria%20de%20agendar%20minha%20aula%20experimental%20na%20FitPrime.',
-    qrTargetType: 'whatsapp',
-    qrTargetUrl: 'https://wa.me/5511976543210?text=Ol%C3%A1%21%20Gostaria%20de%20agendar%20minha%20aula%20experimental%20na%20FitPrime.',
-    targetParams: {
-      whatsappNumber: '5511976543210',
-      whatsappMessage: 'Olá! Gostaria de agendar minha aula experimental na FitPrime.',
-    },
-    isActive: true,
-    isLocked: false,
-    totalNfcScans: 673,
-    totalQrScans: 421,
-    createdAt: '2026-03-02T10:00:00Z',
-    updatedAt: '2026-04-01T12:00:00Z',
-  },
-];
+// Default root administrator (no mock clients or fictitious examples)
+export const DEFAULT_ADMIN_USER: UserProfile = {
+  id: '00000000-0000-4000-a000-000000000001',
+  email: 'admin@goldflow.com.br',
+  role: 'admin',
+  fullName: 'Administrador GoldFlow',
+  companyName: 'GoldFlow NFC',
+  phone: '',
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+export const INITIAL_USERS: UserProfile[] = [DEFAULT_ADMIN_USER];
+export const INITIAL_PLAQUES: Plaque[] = [];
 
 // Helper to load or initialize from localStorage
 function getStored<T>(key: string, defaultValue: T): T {
@@ -117,9 +52,55 @@ function saveStored<T>(key: string, value: T) {
   }
 }
 
-// User state
+// User state — purely real users without mock or fictitious accounts
 export function getUsers(): UserProfile[] {
-  return getStored<UserProfile[]>(USERS_STORAGE_KEY, INITIAL_USERS);
+  const loaded = getStored<UserProfile[]>(USERS_STORAGE_KEY, INITIAL_USERS);
+  // Filter out any obsolete mock examples from prior sessions
+  const cleaned = loaded.filter(
+    (u) =>
+      u.id !== 'user-client-1' &&
+      u.id !== 'user-client-2' &&
+      u.email !== 'contato@bistroroyal.com.br' &&
+      u.email !== 'gestao@fitprime.com.br'
+  );
+  if (cleaned.length !== loaded.length) {
+    saveStored(USERS_STORAGE_KEY, cleaned);
+  }
+  return cleaned.length > 0 ? cleaned : [DEFAULT_ADMIN_USER];
+}
+
+// Fetch real people/profiles from Supabase (or fallback to local cache)
+export async function fetchUsers(): Promise<UserProfile[]> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const mapped: UserProfile[] = data.map((d: any) => ({
+          id: d.id,
+          email: d.email,
+          role: d.role as UserRole,
+          fullName: d.full_name,
+          companyName: d.company_name || d.full_name,
+          phone: d.phone || '',
+          createdAt: d.created_at,
+        }));
+
+        const hasAdmin = mapped.some((u) => u.role === 'admin');
+        const finalUsers = hasAdmin ? mapped : [DEFAULT_ADMIN_USER, ...mapped];
+        saveStored(USERS_STORAGE_KEY, finalUsers);
+        return finalUsers;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch profiles from Supabase, using local cache', e);
+    }
+  }
+
+  return getUsers();
 }
 
 export function getCurrentUser(): UserProfile {
@@ -127,8 +108,8 @@ export function getCurrentUser(): UserProfile {
   const currentId = localStorage.getItem(CURRENT_USER_KEY);
   const found = users.find((u) => u.id === currentId);
   if (found) return found;
-  // Default to Admin or first client
-  const fallback = users[0] || INITIAL_USERS[0];
+
+  const fallback = users[0] || DEFAULT_ADMIN_USER;
   localStorage.setItem(CURRENT_USER_KEY, fallback.id);
   return fallback;
 }
@@ -143,6 +124,7 @@ export function setCurrentUser(userId: string): UserProfile {
 
 // Plaques
 export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
+  const users = getUsers();
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
@@ -151,24 +133,40 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
         query = query.eq('client_id', currentUser.id);
       }
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return data.map((d: any) => ({
-          id: d.id,
-          clientId: d.client_id,
-          slug: d.slug,
-          title: d.title,
-          targetType: d.target_type,
-          targetUrl: d.target_url,
-          qrTargetType: d.qr_target_type || d.target_type,
-          qrTargetUrl: d.qr_target_url || d.target_url,
-          isActive: d.is_active,
-          isLocked: d.is_locked,
-          lockReason: d.lock_reason,
-          totalNfcScans: d.total_nfc_scans || 0,
-          totalQrScans: d.total_qr_scans || 0,
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-        }));
+      if (!error && data) {
+        const mappedPlaques: Plaque[] = data.map((d: any) => {
+          const owner = users.find((u) => u.id === d.client_id);
+          const clientLabel = owner
+            ? owner.fullName
+              ? `${owner.fullName}${owner.companyName && owner.companyName !== owner.fullName ? ` (${owner.companyName})` : ''}`
+              : owner.companyName
+            : 'Cliente';
+
+          return {
+            id: d.id,
+            clientId: d.client_id,
+            clientName: clientLabel,
+            slug: d.slug,
+            title: d.title,
+            targetType: d.target_type,
+            targetUrl: d.target_url,
+            qrTargetType: d.qr_target_type || d.target_type,
+            qrTargetUrl: d.qr_target_url || d.target_url,
+            isActive: d.is_active,
+            isLocked: d.is_locked,
+            lockReason: d.lock_reason,
+            totalNfcScans: d.total_nfc_scans || 0,
+            totalQrScans: d.total_qr_scans || 0,
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
+          };
+        });
+
+        // Cache clean Supabase plaques in localStorage
+        if (currentUser.role === 'admin') {
+          saveStored(PLAQUES_STORAGE_KEY, mappedPlaques);
+        }
+        return mappedPlaques;
       }
     } catch (e) {
       console.warn('Supabase query failed, falling back to local storage', e);
@@ -176,21 +174,35 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
   }
 
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  const users = getUsers();
+  // Clean mock plaques if any
+  const cleaned = allPlaques.filter(
+    (p) =>
+      p.id !== 'plaque-1' &&
+      p.id !== 'plaque-2' &&
+      p.id !== 'plaque-3' &&
+      p.slug !== 'bistro-royal-balcao' &&
+      p.slug !== 'bistro-royal-cardapio' &&
+      p.slug !== 'fitprime-checkin'
+  );
+  if (cleaned.length !== allPlaques.length) {
+    saveStored(PLAQUES_STORAGE_KEY, cleaned);
+  }
 
   // Populate clientName and ensure qrTargetUrl is set
-  const enriched = allPlaques.map((p) => {
+  const enriched = cleaned.map((p) => {
     const owner = users.find((u) => u.id === p.clientId);
     return {
       ...p,
       qrTargetUrl: p.qrTargetUrl || p.targetUrl,
       qrTargetType: p.qrTargetType || p.targetType,
-      clientName: owner ? owner.companyName : p.clientName || 'Cliente GoldFlow',
+      clientName: owner
+        ? owner.fullName
+          ? `${owner.fullName}${owner.companyName && owner.companyName !== owner.fullName ? ` (${owner.companyName})` : ''}`
+          : owner.companyName
+        : p.clientName || 'Cliente',
     };
   });
 
-  // Strict RLS isolation rule:
-  // If role is client, ONLY return plaques belonging to this client!
   if (currentUser.role === 'client') {
     return enriched.filter((p) => p.clientId === currentUser.id);
   }
@@ -254,7 +266,6 @@ export async function updatePlaqueDestination(
 
   const plaque = allPlaques[index];
 
-  // Security Check (RLS emulation):
   if (user.role !== 'admin' && plaque.clientId !== user.id) {
     throw new Error('Acesso negado: Você não tem permissão para alterar esta placa.');
   }
@@ -306,7 +317,6 @@ export async function updatePlaqueQrDestination(
 
   const plaque = allPlaques[index];
 
-  // Security Check (RLS check):
   if (user.role !== 'admin' && plaque.clientId !== user.id) {
     throw new Error('Acesso negado: Você não tem permissão para alterar o QR Code desta placa.');
   }
@@ -353,8 +363,6 @@ export async function togglePlaqueLock(
 
   const plaque = allPlaques[index];
 
-  // Only GoldFlow Admin can set administrative lock!
-  // Client can toggle isActive on/off for pause, but NOT isLocked!
   if (user.role !== 'admin') {
     throw new Error('Apenas administradores GoldFlow podem bloquear/desbloquear placas remotamente.');
   }
@@ -439,7 +447,6 @@ export async function recordPlaqueScan(
   } else if (source === 'qr') {
     plaque.totalQrScans = (plaque.totalQrScans || 0) + 1;
   } else {
-    // direct
     plaque.totalNfcScans = (plaque.totalNfcScans || 0) + 1;
   }
 
@@ -458,14 +465,21 @@ export async function recordPlaqueScan(
 
   const scans = getStored<ScanEvent[]>(SCANS_STORAGE_KEY, []);
   scans.unshift(scan);
-  // Keep last 500 scans in local storage
-  if (scans.length > 500) scans.length = 500;
-  saveStored(SCANS_STORAGE_KEY, scans);
+  saveStored(SCANS_STORAGE_KEY, scans.slice(0, 100));
 
-  // Sync to Supabase if available
+  // Sync scan count to Supabase
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
+      await supabase
+        .from('plaques')
+        .update({
+          total_nfc_scans: plaque.totalNfcScans,
+          total_qr_scans: plaque.totalQrScans,
+          updated_at: plaque.updatedAt,
+        })
+        .eq('slug', slug);
+
       await supabase.from('scans').insert({
         plaque_id: plaque.id,
         source,
@@ -473,7 +487,7 @@ export async function recordPlaqueScan(
         user_agent: ua,
       });
     } catch (e) {
-      console.warn('Failed to insert scan in Supabase', e);
+      console.warn('Failed to sync scan event to Supabase', e);
     }
   }
 
@@ -489,7 +503,6 @@ export function getRecentScans(user: UserProfile, plaqueId?: string): ScanEvent[
     return scans;
   }
 
-  // Client role: only scans for their own plaques
   const clientPlaqueIds = new Set(allPlaques.filter((p) => p.clientId === user.id).map((p) => p.id));
   return scans.filter((s) => clientPlaqueIds.has(s.plaqueId) && (!plaqueId || s.plaqueId === plaqueId));
 }
@@ -523,11 +536,16 @@ export async function createPlaque(
 
   const qrUrl = data.qrTargetUrl?.trim() || data.targetUrl.trim();
   const qrType = data.qrTargetType || data.targetType;
+  const newPlaqueId = generateUuid();
 
   const newPlaque: Plaque = {
-    id: `plaque-${Date.now()}`,
+    id: newPlaqueId,
     clientId: data.clientId,
-    clientName: owner?.companyName || 'Cliente GoldFlow',
+    clientName: owner
+      ? owner.fullName
+        ? `${owner.fullName}${owner.companyName && owner.companyName !== owner.fullName ? ` (${owner.companyName})` : ''}`
+        : owner.companyName
+      : 'Cliente',
     slug: cleanSlug,
     title: data.title,
     targetType: data.targetType,
@@ -549,6 +567,7 @@ export async function createPlaque(
   if (supabase) {
     try {
       await supabase.from('plaques').insert({
+        id: newPlaqueId,
         client_id: data.clientId,
         slug: cleanSlug,
         title: data.title,
@@ -567,7 +586,7 @@ export async function createPlaque(
   return newPlaque;
 }
 
-// Create new Client Profile (Admin only)
+// Create new Client Profile with Real Person Name (Admin only, saved to Supabase & localStorage)
 export async function createClientProfile(
   adminUser: UserProfile,
   data: {
@@ -581,22 +600,77 @@ export async function createClientProfile(
     throw new Error('Apenas administradores podem cadastrar clientes.');
   }
 
-  const users = getUsers();
-  if (users.some((u) => u.email.toLowerCase() === data.email.toLowerCase())) {
-    throw new Error(`O e-mail "${data.email}" já está cadastrado.`);
+  const cleanFullName = data.fullName.trim();
+  const cleanEmail = data.email.trim();
+  const cleanCompany = data.companyName.trim() || cleanFullName;
+  const cleanPhone = data.phone.trim();
+
+  if (!cleanFullName) {
+    throw new Error('O nome da pessoa é obrigatório.');
   }
 
+  const users = getUsers();
+  if (cleanEmail && users.some((u) => u.email.toLowerCase() === cleanEmail.toLowerCase())) {
+    throw new Error(`O e-mail "${cleanEmail}" já está cadastrado.`);
+  }
+
+  const newId = generateUuid();
   const newUser: UserProfile = {
-    id: `user-${Date.now()}`,
-    email: data.email,
+    id: newId,
+    email: cleanEmail || `cliente-${newId.substring(0, 8)}@goldflow.com.br`,
     role: 'client',
-    fullName: data.fullName,
-    companyName: data.companyName,
-    phone: data.phone,
+    fullName: cleanFullName,
+    companyName: cleanCompany,
+    phone: cleanPhone,
     createdAt: new Date().toISOString(),
   };
 
   users.push(newUser);
   saveStored(USERS_STORAGE_KEY, users);
+
+  // Sync to Supabase table `profiles`
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('profiles').insert({
+        id: newId,
+        email: newUser.email,
+        role: 'client',
+        full_name: cleanFullName,
+        company_name: cleanCompany,
+        phone: cleanPhone,
+        created_at: newUser.createdAt,
+      });
+      if (error) {
+        console.warn('Supabase profile insertion error:', error);
+      }
+    } catch (e) {
+      console.warn('Failed to sync profile to Supabase', e);
+    }
+  }
+
   return newUser;
+}
+
+// Delete Client Profile (Admin only)
+export async function deleteClientProfile(
+  adminUser: UserProfile,
+  clientId: string
+): Promise<void> {
+  if (adminUser.role !== 'admin') {
+    throw new Error('Apenas administradores podem excluir clientes.');
+  }
+
+  let users = getUsers();
+  users = users.filter((u) => u.id !== clientId);
+  saveStored(USERS_STORAGE_KEY, users);
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from('profiles').delete().eq('id', clientId);
+    } catch (e) {
+      console.warn('Failed to delete profile from Supabase', e);
+    }
+  }
 }

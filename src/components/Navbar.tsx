@@ -133,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {users.map((u) => (
                 <option key={u.id} value={u.id} className="bg-[#0b1528] text-white">
-                  {u.role === 'admin' ? '🛡️ Admin GoldFlow' : `🏪 ${u.companyName}`}
+                  {u.role === 'admin' ? '🛡️ Admin GoldFlow' : `👤 ${u.fullName}${u.companyName && u.companyName !== u.fullName ? ` (${u.companyName})` : ''}`}
                 </option>
               ))}
             </select>

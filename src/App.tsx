@@ -26,6 +26,7 @@ import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource } from './types'
 import { 
   getCurrentUser, 
   getUsers, 
+  fetchUsers,
   setCurrentUser, 
   getPlaques, 
   updatePlaqueDestination, 
@@ -34,6 +35,7 @@ import {
   getRecentScans,
   createPlaque,
   createClientProfile,
+  deleteClientProfile,
   recordPlaqueScan
 } from './lib/storage';
 import { getStoredSupabaseConfig } from './lib/supabase';
@@ -152,14 +154,14 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   // Quick Standalone QR Generator State in QR Tab
-  const [quickQrUrl, setQuickQrUrl] = useState('https://wa.me/5511999998888');
+  const [quickQrUrl, setQuickQrUrl] = useState('https://google.com');
   const [quickQrPlaqueId, setQuickQrPlaqueId] = useState('');
   const [quickDownloadingPng, setQuickDownloadingPng] = useState(false);
   const [quickDownloadingSvg, setQuickDownloadingSvg] = useState(false);
 
   // Refresh data
   const refreshData = useCallback(async (user: UserProfile) => {
-    const loadedUsers = getUsers();
+    const loadedUsers = await fetchUsers();
     setUsersList(loadedUsers);
 
     const loadedPlaques = await getPlaques(user);
@@ -297,7 +299,7 @@ export default function App() {
     }
   };
 
-  // Create Client
+  // Create Client (Saved to Supabase & localStorage)
   const handleCreateClient = async (data: {
     email: string;
     fullName: string;
@@ -306,6 +308,19 @@ export default function App() {
   }) => {
     await createClientProfile(currentUser, data);
     await refreshData(currentUser);
+    showToast(`Cliente ${data.fullName} cadastrado e salvo no Supabase com sucesso!`, 'success');
+  };
+
+  // Delete Client
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      await deleteClientProfile(currentUser, clientId);
+      await refreshData(currentUser);
+      showToast('Cliente excluído com sucesso.', 'info');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+    }
   };
 
   // Create Plaque
@@ -564,34 +579,34 @@ export default function App() {
 
                 {/* Preset suggestions */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] text-slate-400 font-bold">Exemplos:</span>
+                  <span className="text-[11px] text-slate-400 font-bold">Destinos Rápidos:</span>
                   <button
                     type="button"
-                    onClick={() => setQuickQrUrl('https://wa.me/5511999998888?text=Olá!%20Vim%20pelo%20QR%20Code.')}
+                    onClick={() => setQuickQrUrl('https://wa.me/')}
                     className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-emerald-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     WhatsApp
                   </button>
                   <button
                     type="button"
-                    onClick={() => setQuickQrUrl('https://instagram.com/sualojaoficial')}
+                    onClick={() => setQuickQrUrl('https://instagram.com/')}
                     className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-pink-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     Instagram
                   </button>
                   <button
                     type="button"
-                    onClick={() => setQuickQrUrl('https://g.page/r/Cbistro-royal/review')}
+                    onClick={() => setQuickQrUrl('https://g.page/r/')}
                     className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-amber-400 border border-[#1b2f52] text-xs font-bold"
                   >
                     Google Avaliações
                   </button>
                   <button
                     type="button"
-                    onClick={() => setQuickQrUrl('https://cardapio.sualoja.com.br')}
+                    onClick={() => setQuickQrUrl('https://')}
                     className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-sky-400 border border-[#1b2f52] text-xs font-bold"
                   >
-                    Cardápio / Site
+                    Site / Outro
                   </button>
                 </div>
               </div>
@@ -757,6 +772,7 @@ export default function App() {
             users={users}
             plaques={plaques}
             onCreateClient={handleCreateClient}
+            onDeleteClient={handleDeleteClient}
             onCreatePlaque={handleCreatePlaque}
             onSelectPlaqueForEdit={(p) => setEditingPlaque(p)}
           />

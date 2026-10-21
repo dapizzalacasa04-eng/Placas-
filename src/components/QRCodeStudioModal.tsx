@@ -48,7 +48,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
 
   // Destination URL (Dynamic Target: WhatsApp, Instagram, Google, website, etc.)
   const [qrInputUrl, setQrInputUrl] = useState<string>(() => {
-    return plaque?.qrTargetUrl || plaque?.targetUrl || 'https://g.page/r/Cbistro-royal/review';
+    return plaque?.qrTargetUrl || plaque?.targetUrl || 'https://google.com';
   });
   const [targetType, setTargetType] = useState<TargetType>(() => {
     return plaque?.qrTargetType || 'google_review';
@@ -169,16 +169,16 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
   const applyPreset = (type: 'whatsapp' | 'instagram' | 'google' | 'cardapio') => {
     if (type === 'whatsapp') {
       setTargetType('whatsapp');
-      setQrInputUrl('https://wa.me/5511999998888?text=Olá!%20Vim%20pelo%20QR%20Code.');
+      setQrInputUrl('https://wa.me/');
     } else if (type === 'instagram') {
       setTargetType('instagram');
-      setQrInputUrl('https://instagram.com/sualojaoficial');
+      setQrInputUrl('https://instagram.com/');
     } else if (type === 'google') {
       setTargetType('google_review');
-      setQrInputUrl('https://g.page/r/Cbistro-royal/review');
+      setQrInputUrl('https://g.page/r/');
     } else if (type === 'cardapio') {
       setTargetType('menu');
-      setQrInputUrl('https://cardapio.sualoja.com.br');
+      setQrInputUrl('https://');
     }
   };
 
