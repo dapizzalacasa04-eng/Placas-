@@ -52,13 +52,23 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       const srcParam = (params.get('src') || 'nfc') as ScanSource;
 
-      // Handle path /r/:slug
-      const match = path.match(/^\/r\/([a-zA-Z0-9-_]+)/);
-      if (match && match[1]) {
-        return { slug: match[1], source: srcParam };
+      // Handle path /q/:slug or /qr/:slug (Permanent Dynamic QR Code Links)
+      const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/);
+      if (qrMatch && qrMatch[1]) {
+        return { slug: qrMatch[1], source: 'qr' };
       }
 
-      // Handle query fallback ?r=slug
+      // Handle path /r/:slug (Permanent NFC or General short link)
+      const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/);
+      if (rMatch && rMatch[1]) {
+        return { slug: rMatch[1], source: srcParam };
+      }
+
+      // Handle query fallback ?q=slug or ?r=slug
+      const queryQr = params.get('q') || params.get('qr');
+      if (queryQr) {
+        return { slug: queryQr, source: 'qr' };
+      }
       const querySlug = params.get('r');
       if (querySlug) {
         return { slug: querySlug, source: srcParam };
@@ -549,18 +559,19 @@ export default function App() {
                         <h4 className="font-heading font-bold text-white text-sm truncate">
                           {plaque.title}
                         </h4>
-                        <div className="font-mono text-[11px] text-zinc-400 mt-0.5 truncate">
-                          /r/{plaque.slug}
+                        <div className="font-mono text-[11px] text-zinc-400 mt-0.5 truncate flex items-center gap-1.5">
+                          <span className="text-zinc-500">QR Impresso:</span>
+                          <span className="text-white bg-[#1a1a1e] px-1.5 py-0.2 rounded border border-[#27272a]">/q/{plaque.slug}</span>
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 shrink-0">
-                        Abre Direto
+                        QR Dinâmico
                       </span>
                     </div>
 
                     <div className="p-3 bg-[#0a0a0c] border border-[#27272a] rounded-xl flex flex-col gap-1.5 text-xs">
                       <div className="flex items-center justify-between text-zinc-400 text-[11px]">
-                        <span>Link do QR Code Salvo:</span>
+                        <span>Destino Atual do Redirecionamento:</span>
                         <a
                           href={plaque.qrTargetUrl || plaque.targetUrl}
                           target="_blank"
@@ -577,17 +588,28 @@ export default function App() {
 
                       <div className="pt-1.5 border-t border-[#1c1c20] text-[10px] text-zinc-400 flex items-center justify-between">
                         <span className="truncate">NFC desta placa: <strong className="text-zinc-300 font-mono">{plaque.targetUrl}</strong></span>
-                        <span className="text-zinc-400 shrink-0 ml-1">(Independente)</span>
+                        <span className="text-emerald-400 shrink-0 ml-1">Nunca precisa reimprimir</span>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => setQrStudioPlaque(plaque)}
-                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-red-950/30"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>Alterar Link / Baixar (PNG e SVG)</span>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setPublicRoute({ slug: plaque.slug, source: 'qr' })}
+                        className="py-2 px-2 rounded-xl bg-[#1c1c20] hover:bg-[#27272a] text-zinc-200 font-medium text-xs flex items-center justify-center gap-1 border border-[#27272a] transition-colors"
+                        title="Simular escaneamento da câmera do QR Code"
+                      >
+                        <Smartphone className="w-3.5 h-3.5 text-red-400" />
+                        <span>Testar QR (/q/)</span>
+                      </button>
+
+                      <button
+                        onClick={() => setQrStudioPlaque(plaque)}
+                        className="py-2 px-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-xs flex items-center justify-center gap-1 transition-colors shadow-md shadow-red-950/30"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>Trocar Link / Baixar</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -696,6 +718,7 @@ export default function App() {
           isOpen={!!qrStudioPlaque}
           onClose={() => setQrStudioPlaque(null)}
           onSaveQrLink={handleSaveQrLink}
+          onSimulateScan={(slug, source) => setPublicRoute({ slug, source })}
         />
       )}
 

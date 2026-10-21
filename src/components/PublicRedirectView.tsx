@@ -16,8 +16,18 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
 }) => {
   const [plaque, setPlaque] = useState<Plaque | undefined>(undefined);
   const [recorded, setRecorded] = useState(false);
-  const [countdown, setCountdown] = useState(2);
+  const [countdown, setCountdown] = useState(1);
   const [autoRedirected, setAutoRedirected] = useState(false);
+
+  const destinationUrl = React.useMemo(() => {
+    if (!plaque) return '';
+    let target = source === 'qr' ? (plaque.qrTargetUrl || plaque.targetUrl) : plaque.targetUrl;
+    if (!target) return '';
+    if (!target.startsWith('http://') && !target.startsWith('https://')) {
+      target = `https://${target}`;
+    }
+    return target;
+  }, [plaque, source]);
 
   useEffect(() => {
     const found = getPlaqueBySlug(slug);
@@ -31,21 +41,20 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   }, [slug, source, recorded]);
 
   useEffect(() => {
-    if (!plaque || plaque.isLocked || !plaque.isActive) return;
+    if (!plaque || plaque.isLocked || !plaque.isActive || !destinationUrl) return;
 
     if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+      const timer = setTimeout(() => setCountdown((c) => c - 1), 700);
       return () => clearTimeout(timer);
     } else if (countdown === 0 && !autoRedirected) {
       setAutoRedirected(true);
-      // Attempt safe window redirect (or let user click if iframe blocks)
       try {
-        window.open(plaque.targetUrl, '_blank');
+        window.open(destinationUrl, '_blank');
       } catch (e) {
         console.warn('Auto redirect blocked or sandboxed', e);
       }
     }
-  }, [countdown, plaque, autoRedirected]);
+  }, [countdown, plaque, destinationUrl, autoRedirected]);
 
   if (!plaque) {
     return (
@@ -169,8 +178,8 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-400">Destino:</span>
-            <span className="font-mono text-zinc-300 truncate max-w-[200px]" title={plaque.targetUrl}>
-              {plaque.targetUrl}
+            <span className="font-mono text-zinc-300 truncate max-w-[200px]" title={destinationUrl}>
+              {destinationUrl}
             </span>
           </div>
         </div>
@@ -178,7 +187,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
         {/* Manual Click Button (instant) */}
         <div className="w-full flex flex-col gap-2.5">
           <a
-            href={plaque.targetUrl}
+            href={destinationUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold text-sm transition-all shadow-lg shadow-red-950/50 flex items-center justify-center gap-2"

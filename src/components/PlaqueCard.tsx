@@ -169,37 +169,43 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
             </div>
           </div>
 
-          {/* Channel 2: QR Code Independent Target */}
+          {/* Channel 2: QR Code Dynamic Target */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-[11px]">
                 <QrCode className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Destino do QR Code (Câmera):</span>
+                <span>QR Code Dinâmico:</span>
+                <span className="font-mono text-[10px] text-zinc-400 bg-[#16161a] px-1.5 py-0.2 rounded border border-[#27272a]">
+                  /q/{plaque.slug}
+                </span>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium text-emerald-300 bg-emerald-950/60 border border-emerald-800/60">
-                Abre Link Direto
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60">
+                Nunca Precisa Reimprimir
               </span>
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <a
-                href={plaque.qrTargetUrl || plaque.targetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-mono text-zinc-300 hover:text-white truncate flex-1 flex items-center gap-1.5"
-                title={plaque.qrTargetUrl || plaque.targetUrl}
-              >
-                <span className="truncate">{plaque.qrTargetUrl || plaque.targetUrl}</span>
-                <ExternalLink className="w-3 h-3 shrink-0 text-zinc-500" />
-              </a>
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className="text-[10px] text-zinc-500 uppercase font-medium shrink-0">Destino:</span>
+                <a
+                  href={plaque.qrTargetUrl || plaque.targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono text-zinc-300 hover:text-white truncate flex items-center gap-1"
+                  title={plaque.qrTargetUrl || plaque.targetUrl}
+                >
+                  <span className="truncate">{plaque.qrTargetUrl || plaque.targetUrl}</span>
+                  <ExternalLink className="w-3 h-3 shrink-0 text-zinc-500" />
+                </a>
+              </div>
 
               <button
                 onClick={() => onOpenQrStudio(plaque)}
                 className="px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/50 text-red-200 text-xs font-medium flex items-center gap-1 shrink-0 border border-red-900/50 transition-colors"
-                title="Alterar link do QR Code e baixar PNG/SVG"
+                title="Alterar destino do QR Code e baixar PNG/SVG com o link permanente"
               >
                 <Edit3 className="w-3 h-3 text-red-400" />
-                <span>Gerenciar QR</span>
+                <span>Trocar Link QR</span>
               </button>
             </div>
           </div>
