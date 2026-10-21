@@ -12,6 +12,42 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          var path = window.location.pathname;
+          var hash = window.location.hash || '';
+          var search = window.location.search || '';
+          var match = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
+                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
+          var isQr = !!match;
+          if (!match) {
+            match = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) || hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
+          }
+          var params = new URLSearchParams(search);
+          var slug = match ? match[1] : (params.get('q') || params.get('qr') || params.get('r'));
+          if (params.get('q') || params.get('qr')) isQr = true;
+
+          if (slug) {
+            var raw = localStorage.getItem('goldflow_nfc_plaques');
+            if (raw) {
+              var plaques = JSON.parse(raw);
+              var norm = slug.trim().toLowerCase();
+              var p = plaques.find(function(item) {
+                return item.slug && item.slug.toLowerCase() === norm;
+              });
+              if (p && !p.isLocked && p.isActive) {
+                var target = isQr ? (p.qrTargetUrl || p.targetUrl) : p.targetUrl;
+                if (target) {
+                  var dest = (target.indexOf('://') === -1) ? 'https://' + target : target;
+                  window.location.replace(dest);
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

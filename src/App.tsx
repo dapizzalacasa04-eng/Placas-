@@ -56,17 +56,20 @@ export default function App() {
   const [publicRoute, setPublicRoute] = useState<{ slug: string; source: ScanSource } | null>(() => {
     try {
       const path = window.location.pathname;
+      const hash = window.location.hash || '';
       const params = new URLSearchParams(window.location.search);
       const srcParam = (params.get('src') || 'nfc') as ScanSource;
 
       // Handle path /q/:slug or /qr/:slug (Permanent Dynamic QR Code Links)
-      const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/);
+      const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
+                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
       if (qrMatch && qrMatch[1]) {
         return { slug: qrMatch[1], source: 'qr' };
       }
 
       // Handle path /r/:slug (Permanent NFC or General short link)
-      const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/);
+      const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) ||
+                     hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
       if (rMatch && rMatch[1]) {
         return { slug: rMatch[1], source: srcParam };
       }
@@ -85,6 +88,48 @@ export default function App() {
     }
     return null;
   });
+
+  // Keep routing synced if user navigates history
+  useEffect(() => {
+    const handleUrlChange = () => {
+      try {
+        const path = window.location.pathname;
+        const hash = window.location.hash || '';
+        const params = new URLSearchParams(window.location.search);
+        const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
+                        hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
+        if (qrMatch && qrMatch[1]) {
+          setPublicRoute({ slug: qrMatch[1], source: 'qr' });
+          return;
+        }
+        const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) ||
+                       hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
+        if (rMatch && rMatch[1]) {
+          setPublicRoute({ slug: rMatch[1], source: (params.get('src') || 'nfc') as ScanSource });
+          return;
+        }
+        const queryQr = params.get('q') || params.get('qr');
+        if (queryQr) {
+          setPublicRoute({ slug: queryQr, source: 'qr' });
+          return;
+        }
+        const querySlug = params.get('r');
+        if (querySlug) {
+          setPublicRoute({ slug: querySlug, source: (params.get('src') || 'nfc') as ScanSource });
+          return;
+        }
+      } catch (e) {
+        console.warn('Url change check error', e);
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
 
   // State
   const [users, setUsersList] = useState<UserProfile[]>([]);
@@ -237,6 +282,19 @@ export default function App() {
   const handleExecuteScanFromSimulator = async (slug: string, source: 'nfc' | 'qr') => {
     setIsNfcSimulatorOpen(false);
     setPublicRoute({ slug, source });
+  };
+
+  // Test exclusive QR Code route
+  const handleTestQrRoute = (plaque: Plaque) => {
+    const url = `/q/${plaque.slug}`;
+    try {
+      const win = window.open(url, '_blank');
+      if (!win) {
+        setPublicRoute({ slug: plaque.slug, source: 'qr' });
+      }
+    } catch {
+      setPublicRoute({ slug: plaque.slug, source: 'qr' });
+    }
   };
 
   // Create Client
@@ -420,6 +478,7 @@ export default function App() {
                     onSimulateTap={(p) => {
                       setPublicRoute({ slug: p.slug, source: 'nfc' });
                     }}
+                    onTestQr={handleTestQrRoute}
                   />
                 ))}
               </div>
@@ -667,11 +726,11 @@ export default function App() {
                       </button>
 
                       <button
-                        onClick={() => setPublicRoute({ slug: plaque.slug, source: 'qr' })}
+                        onClick={() => handleTestQrRoute(plaque)}
                         className="min-h-[46px] py-2.5 px-2 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
-                        title="Simular leitura da câmera do celular"
+                        title="Testar rota exclusiva /q/ desta placa com redirecionamento direto sem abrir o site"
                       >
-                        <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                        <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
                         <span>Testar (/q/)</span>
                       </button>
                     </div>

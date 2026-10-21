@@ -143,7 +143,9 @@ export const NfcSimulatorModal: React.FC<NfcSimulatorModalProps> = ({
                 {currentPlaque?.title}
               </p>
               <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[260px]">
-                Destino atual: <span className="text-slate-200 font-mono">{currentPlaque?.targetUrl}</span>
+                Destino atual: <span className="text-slate-200 font-mono">
+                  {sourceMode === 'qr' ? (currentPlaque?.qrTargetUrl || currentPlaque?.targetUrl) : currentPlaque?.targetUrl}
+                </span>
               </p>
             </div>
 
