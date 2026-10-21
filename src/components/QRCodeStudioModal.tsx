@@ -16,9 +16,10 @@ import {
   Instagram,
   Star,
   Globe,
-  Smartphone
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
-import { Plaque, UserProfile } from '../types';
+import { Plaque, UserProfile, TargetType } from '../types';
 import { 
   generateQRCodeSVG, 
   generateQRCodeDataUrl, 
@@ -31,7 +32,7 @@ interface QRCodeStudioModalProps {
   currentUser: UserProfile;
   isOpen: boolean;
   onClose: () => void;
-  onSaveQrLink: (plaqueId: string, newQrUrl: string) => Promise<void>;
+  onSaveQrLink: (plaqueId: string, newQrUrl: string, qrTargetType?: TargetType) => Promise<void>;
   onSimulateScan?: (slug: string, source: 'qr') => void;
 }
 
@@ -47,7 +48,10 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
 
   // Destination URL (Dynamic Target: WhatsApp, Instagram, Google, website, etc.)
   const [qrInputUrl, setQrInputUrl] = useState<string>(() => {
-    return plaque?.qrTargetUrl || plaque?.targetUrl || 'https://instagram.com/sualoja';
+    return plaque?.qrTargetUrl || plaque?.targetUrl || 'https://g.page/r/Cbistro-royal/review';
+  });
+  const [targetType, setTargetType] = useState<TargetType>(() => {
+    return plaque?.qrTargetType || 'google_review';
   });
 
   const [svgContent, setSvgContent] = useState<string>('');
@@ -79,6 +83,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
   useEffect(() => {
     if (plaque) {
       setQrInputUrl(plaque.qrTargetUrl || plaque.targetUrl || '');
+      setTargetType(plaque.qrTargetType || 'google_review');
     }
   }, [plaque]);
 
@@ -116,7 +121,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
     setSaving(true);
     setSaveSuccess(false);
     try {
-      await onSaveQrLink(plaque.id, formattedDestinationUrl);
+      await onSaveQrLink(plaque.id, formattedDestinationUrl, targetType);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
@@ -163,12 +168,16 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
 
   const applyPreset = (type: 'whatsapp' | 'instagram' | 'google' | 'cardapio') => {
     if (type === 'whatsapp') {
+      setTargetType('whatsapp');
       setQrInputUrl('https://wa.me/5511999998888?text=Olá!%20Vim%20pelo%20QR%20Code.');
     } else if (type === 'instagram') {
+      setTargetType('instagram');
       setQrInputUrl('https://instagram.com/sualojaoficial');
     } else if (type === 'google') {
+      setTargetType('google_review');
       setQrInputUrl('https://g.page/r/Cbistro-royal/review');
     } else if (type === 'cardapio') {
+      setTargetType('menu');
       setQrInputUrl('https://cardapio.sualoja.com.br');
     }
   };
@@ -187,14 +196,14 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-heading text-xl font-bold text-white">
-                  QR Code Dinâmico GoldFlow
+                  QR Code Permanente GoldFlow
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  Link Fixo
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                  Imagem Fixa
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                O QR Code impresso nunca muda: altere o link no painel sem reimprimir
+                Altere o destino quantas vezes quiser sem trocar a imagem impressa
               </p>
             </div>
           </div>
@@ -249,6 +258,11 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                     <span>Testar</span>
                   </button>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-[#14233e]">
+                <span>NFC desta placa: <strong className="text-slate-300 font-mono">{plaque.targetUrl}</strong></span>
+                <span className="text-emerald-400 font-bold shrink-0 ml-2">NFC e QR Code independentes</span>
               </div>
             </div>
           )}
@@ -310,7 +324,7 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                 className="px-2.5 py-1 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-amber-400 border border-[#1b2f52] text-xs flex items-center gap-1 font-bold transition-colors"
               >
                 <Star className="w-3.5 h-3.5" />
-                Google
+                Google Avaliações
               </button>
               <button
                 type="button"
@@ -328,14 +342,14 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
             <div className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52]">
               <div className="text-xs">
                 <div className="font-bold text-white text-sm">
-                  {saveSuccess ? 'Salvo com Sucesso!' : isLinkModified ? 'Destino Alterado (Pendente de Salvar)' : 'Destino Sincronizado'}
+                  {saveSuccess ? 'Salvo no Supabase com Sucesso!' : isLinkModified ? 'Destino Alterado (Pendente de Salvar)' : 'Destino Sincronizado'}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   {saveSuccess 
                     ? 'O QR Code impresso já está apontando para o novo endereço.' 
                     : isLinkModified 
-                    ? 'Clique no botão ao lado para salvar. Não precisa reimprimir o QR.'
-                    : 'Ao trocar a URL acima, basta salvar para atualizar na hora.'}
+                    ? 'Clique no botão ao lado para salvar no Supabase. Não precisa reimprimir o QR.'
+                    : 'Ao trocar a URL acima, basta salvar para redirecionar sem reimprimir.'}
                 </div>
               </div>
 
@@ -359,14 +373,14 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    <span>{saving ? 'Salvando...' : 'Salvar Novo Destino'}</span>
+                    <span>{saving ? 'Salvando...' : 'Salvar no Supabase'}</span>
                   </>
                 )}
               </button>
             </div>
           )}
 
-          {/* QR Code Graphic Frame */}
+          {/* QR Code Graphic Frame (Permanent Image) */}
           <div className="relative p-5 rounded-3xl bg-white shadow-2xl shadow-black/80 flex items-center justify-center max-w-[240px] aspect-square w-full">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-2 text-slate-600">
@@ -381,10 +395,24 @@ export const QRCodeStudioModal: React.FC<QRCodeStudioModalProps> = ({
             ) : dataUrl ? (
               <img
                 src={dataUrl}
-                alt="QR Code Dinâmico"
+                alt="QR Code Permanente"
                 className="w-full h-full object-contain"
               />
             ) : null}
+          </div>
+
+          {/* Explanation badge */}
+          <div className="w-full p-3.5 rounded-2xl bg-[#070d1a] border border-[#1b2f52] text-center">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-3 py-1 rounded-full mb-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              QR Code Permanente Fixo
+            </span>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Este QR Code aponta para <strong className="text-white font-mono">/q/{plaque?.slug}</strong>. 
+              Qualquer cliente que escanear a placa impressa será direcionado para o link ativo:
+              <br />
+              <span className="text-blue-400 font-mono font-bold break-all">{formattedDestinationUrl}</span>
+            </p>
           </div>
 
           {/* Style Selector */}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Radio, ExternalLink, Lock, AlertTriangle, ArrowLeft, CheckCircle2, Shield, QrCode } from 'lucide-react';
+import { Radio, ExternalLink, Lock, AlertTriangle, ArrowLeft, CheckCircle2, Shield, QrCode, Sparkles } from 'lucide-react';
 import { Plaque, ScanSource } from '../types';
-import { getPlaqueBySlug, recordPlaqueScan } from '../lib/storage';
+import { getPlaqueBySlug, fetchPlaqueBySlug, recordPlaqueScan } from '../lib/storage';
 
 interface PublicRedirectViewProps {
   slug: string;
@@ -14,10 +14,26 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   source,
   onReturnToDashboard,
 }) => {
-  const [plaque, setPlaque] = useState<Plaque | undefined>(undefined);
+  const [plaque, setPlaque] = useState<Plaque | undefined>(() => getPlaqueBySlug(slug));
   const [recorded, setRecorded] = useState(false);
   const [countdown, setCountdown] = useState(1);
   const [autoRedirected, setAutoRedirected] = useState(false);
+  const [loading, setLoading] = useState(!plaque);
+
+  // Fetch latest from Supabase if connected
+  useEffect(() => {
+    let isMounted = true;
+    fetchPlaqueBySlug(slug).then((freshPlaque) => {
+      if (isMounted && freshPlaque) {
+        setPlaque(freshPlaque);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
 
   const destinationUrl = React.useMemo(() => {
     if (!plaque) return '';
@@ -29,17 +45,16 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
     return target;
   }, [plaque, source]);
 
+  // Record scan telemetria
   useEffect(() => {
-    const found = getPlaqueBySlug(slug);
-    setPlaque(found);
-
-    if (found && !found.isLocked && found.isActive && !recorded) {
+    if (plaque && !plaque.isLocked && plaque.isActive && !recorded) {
       recordPlaqueScan(slug, source).then(() => {
         setRecorded(true);
       });
     }
-  }, [slug, source, recorded]);
+  }, [plaque, slug, source, recorded]);
 
+  // Execute redirection
   useEffect(() => {
     if (!plaque || plaque.isLocked || !plaque.isActive || !destinationUrl) return;
 
@@ -49,12 +64,28 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
     } else if (countdown === 0 && !autoRedirected) {
       setAutoRedirected(true);
       try {
-        window.open(destinationUrl, '_blank');
+        // Primary redirection for mobile cameras and web browsers
+        window.location.href = destinationUrl;
       } catch (e) {
-        console.warn('Auto redirect blocked or sandboxed', e);
+        try {
+          window.open(destinationUrl, '_blank');
+        } catch (e2) {
+          console.warn('Auto redirect blocked or sandboxed', e2);
+        }
       }
     }
   }, [countdown, plaque, destinationUrl, autoRedirected]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060b17] text-white flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0b1528] border border-[#1b2f52] rounded-3xl p-8 text-center flex flex-col items-center gap-4 shadow-2xl">
+          <div className="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-slate-300">Conectando ao GoldFlow NFC...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!plaque) {
     return (
@@ -66,7 +97,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
           <div>
             <h2 className="font-heading text-xl font-bold">Placa Não Encontrada</h2>
             <p className="text-slate-400 text-xs mt-1">
-              O link <span className="font-mono text-slate-300">/r/{slug}</span> não foi encontrado no sistema GoldFlow NFC.
+              O link <span className="font-mono text-slate-300">/{source === 'qr' ? 'q' : 'r'}/{slug}</span> não foi encontrado no sistema GoldFlow NFC.
             </p>
           </div>
           <button
@@ -140,7 +171,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
         {/* Brand & Wave Animation */}
         <div className="relative">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-950/80 ring-4 ring-blue-500/20">
-            {source === 'nfc' ? <Radio className="w-10 h-10 animate-pulse" /> : <QrCode className="w-10 h-10" />}
+            {source === 'nfc' ? <Radio className="w-10 h-10 animate-pulse" /> : <QrCode className="w-10 h-10 animate-pulse" />}
           </div>
           <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-black p-1 rounded-full border-2 border-[#0b1528]">
             <CheckCircle2 className="w-4 h-4" />
@@ -151,7 +182,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
           <div className="flex items-center justify-center gap-1.5 text-xs text-blue-400 font-bold tracking-wider uppercase">
             <span>GoldFlow NFC</span>
             <span>·</span>
-            <span>{source === 'nfc' ? 'Aproximação NFC' : 'Leitura de QR Code'}</span>
+            <span>{source === 'nfc' ? 'Aproximação NFC' : 'Leitura de QR Code Dinâmico'}</span>
           </div>
           <h2 className="font-heading text-2xl font-extrabold text-white">
             {plaque.title}
@@ -164,10 +195,10 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
         {/* Telemetry info card */}
         <div className="w-full p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52] text-left flex flex-col gap-2.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">Origem do Acesso:</span>
+            <span className="text-slate-400">Canal Físico:</span>
             <span className="font-bold text-white uppercase flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
-              {source === 'nfc' ? 'Chip NFC Físico' : 'Câmera QR Code'}
+              {source === 'nfc' ? 'Chip NFC Físico' : 'QR Code Impresso (/q/)'}
             </span>
           </div>
 
@@ -207,7 +238,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
 
         <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
           <Shield className="w-3.5 h-3.5 text-blue-400" />
-          <span>Link dinâmico protegido com telemetria segura GoldFlow</span>
+          <span>Link permanente protegido com telemetria segura GoldFlow</span>
         </div>
       </div>
     </div>

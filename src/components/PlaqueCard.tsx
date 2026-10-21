@@ -19,6 +19,7 @@ interface PlaqueCardProps {
   plaque: Plaque;
   userRole: UserRole;
   onEditDestination: (plaque: Plaque) => void;
+  onEditQrDestination: (plaque: Plaque) => void;
   onOpenQrStudio: (plaque: Plaque) => void;
   onToggleLock: (plaque: Plaque) => void;
   onSimulateTap: (plaque: Plaque) => void;
@@ -28,30 +29,39 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
   plaque,
   userRole,
   onEditDestination,
+  onEditQrDestination,
   onOpenQrStudio,
   onToggleLock,
   onSimulateTap,
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [copiedNfc, setCopiedNfc] = React.useState(false);
+  const [copiedQr, setCopiedQr] = React.useState(false);
 
   const totalScans = plaque.totalNfcScans + plaque.totalQrScans;
   const nfcPercent = totalScans > 0 ? Math.round((plaque.totalNfcScans / totalScans) * 100) : 50;
   const qrPercent = totalScans > 0 ? 100 - nfcPercent : 50;
 
   const permanentNfcUrl = `${window.location.origin}/r/${plaque.slug}`;
+  const permanentQrUrl = `${window.location.origin}/q/${plaque.slug}`;
 
-  const copyUrl = () => {
+  const copyNfcUrl = () => {
     navigator.clipboard.writeText(permanentNfcUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedNfc(true);
+    setTimeout(() => setCopiedNfc(false), 2000);
   };
 
-  const getTargetTypeBadge = (type: Plaque['targetType']) => {
+  const copyQrUrl = () => {
+    navigator.clipboard.writeText(permanentQrUrl);
+    setCopiedQr(true);
+    setTimeout(() => setCopiedQr(false), 2000);
+  };
+
+  const getTargetTypeBadge = (type?: Plaque['targetType']) => {
     switch (type) {
       case 'google_review':
         return { label: 'Google Avaliações', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' };
       case 'whatsapp':
-        return { label: 'WhatsApp Oficial', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+        return { label: 'WhatsApp', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
       case 'instagram':
         return { label: 'Instagram', color: 'text-pink-400 bg-pink-500/10 border-pink-500/20' };
       case 'menu':
@@ -63,7 +73,8 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
     }
   };
 
-  const badge = getTargetTypeBadge(plaque.targetType);
+  const nfcBadge = getTargetTypeBadge(plaque.targetType);
+  const qrBadge = getTargetTypeBadge(plaque.qrTargetType || plaque.targetType);
 
   return (
     <div
@@ -97,17 +108,28 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
               {plaque.title}
             </h3>
             
-            {/* Short permanent identifier */}
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="font-mono text-xs text-slate-300 bg-[#070d1a] px-3 py-1 rounded-xl border border-[#1b2f52] truncate">
-                /r/{plaque.slug}
+            {/* Short permanent identifiers */}
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className="font-mono text-xs text-slate-300 bg-[#070d1a] px-2.5 py-1 rounded-xl border border-[#1b2f52] truncate">
+                NFC: /r/{plaque.slug}
               </span>
               <button
-                onClick={copyUrl}
+                onClick={copyNfcUrl}
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#12213d] transition-colors"
-                title="Copiar link permanente para gravação no NFC"
+                title="Copiar link permanente do NFC"
               >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {copiedNfc ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+
+              <span className="font-mono text-xs text-blue-300 bg-[#070d1a] px-2.5 py-1 rounded-xl border border-[#1b2f52] truncate">
+                QR: /q/{plaque.slug}
+              </span>
+              <button
+                onClick={copyQrUrl}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#12213d] transition-colors"
+                title="Copiar link permanente do QR Code"
+              >
+                {copiedQr ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
@@ -139,10 +161,10 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-bold text-blue-400">
                 <Radio className="w-4 h-4 text-blue-400" />
-                <span>Destino do Chip NFC (Aproximação):</span>
+                <span>1. Destino do Chip NFC (Aproximação):</span>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${badge.color}`}>
-                {badge.label}
+              <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${nfcBadge.color}`}>
+                {nfcBadge.label}
               </span>
             </div>
 
@@ -161,9 +183,9 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
               <button
                 onClick={() => onEditDestination(plaque)}
                 disabled={plaque.isLocked && userRole !== 'admin'}
-                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-950 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-white text-xs font-bold flex items-center justify-center gap-2 border border-[#1b2f52] shadow-sm disabled:opacity-50 transition-all"
               >
-                <Edit3 className="w-4 h-4" />
+                <Edit3 className="w-4 h-4 text-blue-400" />
                 <span>Trocar Link NFC</span>
               </button>
             </div>
@@ -174,11 +196,16 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-bold text-slate-200">
                 <QrCode className="w-4 h-4 text-blue-400" />
-                <span>Destino do QR Code (Câmera):</span>
+                <span>2. Destino do QR Code (Câmera):</span>
               </div>
-              <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-800">
-                Nunca precisa reimprimir
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${qrBadge.color}`}>
+                  {qrBadge.label}
+                </span>
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-800">
+                  Nunca precisa reimprimir
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -194,11 +221,12 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
               </a>
 
               <button
-                onClick={() => onOpenQrStudio(plaque)}
-                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-white text-xs font-bold flex items-center justify-center gap-2 border border-[#1b2f52] shadow-sm transition-all"
+                onClick={() => onEditQrDestination(plaque)}
+                disabled={plaque.isLocked && userRole !== 'admin'}
+                className="min-h-[46px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-950 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Edit3 className="w-4 h-4 text-blue-400" />
-                <span>Trocar Link QR</span>
+                <Edit3 className="w-4 h-4" />
+                <span>Trocar Destino QR</span>
               </button>
             </div>
           </div>
@@ -246,14 +274,14 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
             className="min-h-[48px] py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <Download className="w-4 h-4 text-slate-900" />
-            <span>Baixar QR Code</span>
+            <span>Baixar QR (PNG/SVG)</span>
           </button>
 
           {/* Test NFC Tap */}
           <button
             onClick={() => onSimulateTap(plaque)}
             className="min-h-[48px] py-3 px-4 rounded-2xl bg-[#070d1a] hover:bg-[#101b33] text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border border-[#1b2f52] transition-colors"
-            title="Simular aproximação no celular"
+            title="Simular no celular"
           >
             <Smartphone className="w-4 h-4 text-blue-400" />
             <span>Testar no Celular</span>
@@ -282,9 +310,13 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
               )}
             </button>
           ) : (
-            <div className="flex items-center justify-center text-xs text-slate-400 font-medium bg-[#070d1a] rounded-2xl border border-[#1b2f52] px-2 py-3">
-              Chip NFC: Gravado /r/{plaque.slug}
-            </div>
+            <button
+              onClick={() => onEditQrDestination(plaque)}
+              className="min-h-[48px] py-3 px-4 rounded-2xl bg-[#070d1a] hover:bg-[#12213d] text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border border-[#1b2f52] transition-colors"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>Editar QR Code</span>
+            </button>
           )}
         </div>
       </div>

@@ -204,6 +204,43 @@ export function getPlaqueBySlug(slug: string): Plaque | undefined {
   return allPlaques.find((p) => p.slug.toLowerCase() === normalized);
 }
 
+export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefined> {
+  const normalized = slug.trim().toLowerCase();
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('plaques')
+        .select('*')
+        .eq('slug', normalized)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          clientId: data.client_id,
+          slug: data.slug,
+          title: data.title,
+          targetType: data.target_type,
+          targetUrl: data.target_url,
+          qrTargetType: data.qr_target_type || data.target_type,
+          qrTargetUrl: data.qr_target_url || data.target_url,
+          isActive: data.is_active,
+          isLocked: data.is_locked,
+          lockReason: data.lock_reason,
+          totalNfcScans: data.total_nfc_scans || 0,
+          totalQrScans: data.total_qr_scans || 0,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+      }
+    } catch (e) {
+      console.warn('Supabase fetchPlaqueBySlug error, falling back to local storage', e);
+    }
+  }
+  return getPlaqueBySlug(slug);
+}
+
 export async function updatePlaqueDestination(
   user: UserProfile,
   plaqueId: string,

@@ -18,7 +18,8 @@ import {
   Link2,
   HelpCircle,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Edit3
 } from 'lucide-react';
 import { downloadQRCodePNG, downloadQRCodeSVG } from './lib/qrCodeHelper';
 import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource } from './types';
@@ -41,6 +42,7 @@ import { BottomTabBar, TabType } from './components/BottomTabBar';
 import { PlaqueCard } from './components/PlaqueCard';
 import { PlaqueEditorModal } from './components/PlaqueEditorModal';
 import { QRCodeStudioModal } from './components/QRCodeStudioModal';
+import { QrDestinationModal } from './components/QrDestinationModal';
 import { NfcSimulatorModal } from './components/NfcSimulatorModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -50,7 +52,7 @@ import { GuideStepByStepView } from './components/GuideStepByStepView';
 import { CreatePlaqueModal } from './components/CreatePlaqueModal';
 
 export default function App() {
-  // Check URL for public redirect route e.g. /r/:slug?src=nfc or ?r=slug
+  // Check URL for public redirect route e.g. /r/:slug?src=nfc or ?r=slug or /q/:slug
   const [publicRoute, setPublicRoute] = useState<{ slug: string; source: ScanSource } | null>(() => {
     try {
       const path = window.location.pathname;
@@ -98,6 +100,7 @@ export default function App() {
   // Modals
   const [isCreatePlaqueOpen, setIsCreatePlaqueOpen] = useState(false);
   const [editingPlaque, setEditingPlaque] = useState<Plaque | null>(null);
+  const [qrDestinationPlaque, setQrDestinationPlaque] = useState<Plaque | null>(null);
   const [qrStudioPlaque, setQrStudioPlaque] = useState<Plaque | null>(null);
   const [isNfcSimulatorOpen, setIsNfcSimulatorOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
@@ -149,11 +152,11 @@ export default function App() {
     showToast('Destino do chip NFC atualizado com sucesso!', 'success');
   };
 
-  // Edit independent QR Code destination
-  const handleSaveQrLink = async (plaqueId: string, newQrUrl: string) => {
-    await updatePlaqueQrDestination(currentUser, plaqueId, newQrUrl);
+  // Edit independent permanent QR Code destination
+  const handleSaveQrLink = async (plaqueId: string, newQrUrl: string, qrTargetType: TargetType = 'custom') => {
+    await updatePlaqueQrDestination(currentUser, plaqueId, newQrUrl, qrTargetType);
     await refreshData(currentUser);
-    showToast('Link do QR Code atualizado no banco de dados com sucesso!', 'success');
+    showToast('Destino do QR Code permanente atualizado no Supabase com sucesso!', 'success');
   };
 
   const handleDownloadQuickPng = async () => {
@@ -204,7 +207,7 @@ export default function App() {
       showToast('Por favor, informe um link válido.', 'error');
       return;
     }
-    await handleSaveQrLink(quickQrPlaqueId, quickQrUrl.trim());
+    await handleSaveQrLink(quickQrPlaqueId, quickQrUrl.trim(), 'custom');
   };
 
   // Toggle Remote Lock
@@ -333,7 +336,7 @@ export default function App() {
                     {currentUser.role === 'admin' ? 'Painel Geral GoldFlow NFC' : `Placas de ${currentUser.companyName}`}
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
-                    Troque o destino dos links a qualquer momento sem regravar o chip físico
+                    Troque os destinos do NFC e do QR Code a qualquer momento sem regravar o chip ou reimprimir a placa
                   </p>
                 </div>
               </div>
@@ -411,6 +414,7 @@ export default function App() {
                     plaque={plaque}
                     userRole={currentUser.role}
                     onEditDestination={(p) => setEditingPlaque(p)}
+                    onEditQrDestination={(p) => setQrDestinationPlaque(p)}
                     onOpenQrStudio={(p) => setQrStudioPlaque(p)}
                     onToggleLock={handleToggleLock}
                     onSimulateTap={(p) => {
@@ -449,7 +453,7 @@ export default function App() {
                 Central de QR Codes
               </h1>
               <p className="text-xs text-slate-400 mt-0.5">
-                Cole qualquer link para gerar QR Codes ou altere os destinos das placas impressas
+                Altere os destinos dos QR Codes das placas sem reimprimir ou gere QR Codes rápidos para qualquer link
               </p>
             </div>
 
@@ -616,7 +620,7 @@ export default function App() {
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 shrink-0">
-                        QR Dinâmico
+                        QR Permanente
                       </span>
                     </div>
 
@@ -639,26 +643,36 @@ export default function App() {
 
                       <div className="pt-2 border-t border-[#14233e] text-[11px] text-slate-400 flex items-center justify-between">
                         <span className="truncate">NFC desta placa: <strong className="text-slate-300 font-mono">{plaque.targetUrl}</strong></span>
-                        <span className="text-emerald-400 shrink-0 ml-1 font-bold">Nunca precisa reimprimir</span>
+                        <span className="text-emerald-400 shrink-0 ml-1 font-bold">Imagem nunca muda</span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-3 gap-2 pt-1">
                       <button
-                        onClick={() => setPublicRoute({ slug: plaque.slug, source: 'qr' })}
-                        className="min-h-[46px] py-2.5 px-3 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
-                        title="Simular leitura da câmera do QR Code"
+                        onClick={() => setQrDestinationPlaque(plaque)}
+                        className="min-h-[46px] py-2.5 px-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-950 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        title="Trocar para onde o QR Code impresso redireciona"
                       >
-                        <Smartphone className="w-4 h-4 text-blue-400" />
-                        <span>Testar QR (/q/)</span>
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Trocar Destino</span>
                       </button>
 
                       <button
                         onClick={() => setQrStudioPlaque(plaque)}
-                        className="min-h-[46px] py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-950 hover:scale-[1.02] active:scale-[0.98]"
+                        className="min-h-[46px] py-2.5 px-2 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
+                        title="Baixar imagem em PNG ou SVG para impressão"
                       >
-                        <QrCode className="w-4 h-4" />
-                        <span>Trocar Link / Baixar</span>
+                        <Download className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Baixar QR</span>
+                      </button>
+
+                      <button
+                        onClick={() => setPublicRoute({ slug: plaque.slug, source: 'qr' })}
+                        className="min-h-[46px] py-2.5 px-2 rounded-xl bg-[#070d1a] hover:bg-[#12213d] text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
+                        title="Simular leitura da câmera do celular"
+                      >
+                        <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Testar (/q/)</span>
                       </button>
                     </div>
                   </div>
@@ -715,6 +729,16 @@ export default function App() {
           isOpen={!!editingPlaque}
           onClose={() => setEditingPlaque(null)}
           onSave={handleSaveDestination}
+        />
+      )}
+
+      {qrDestinationPlaque && (
+        <QrDestinationModal
+          plaque={qrDestinationPlaque}
+          isOpen={!!qrDestinationPlaque}
+          onClose={() => setQrDestinationPlaque(null)}
+          onSaveQrDestination={handleSaveQrLink}
+          onSimulateScan={(slug, source) => setPublicRoute({ slug, source })}
         />
       )}
 
