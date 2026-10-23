@@ -388,11 +388,11 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
       const { data, error } = await supabase
         .from('plaques')
         .select('*')
-        .eq('slug', normalized)
+        .ilike('slug', normalized)
         .maybeSingle();
 
       if (!error && data) {
-        return {
+        const foundPlaque: Plaque = {
           id: data.id,
           clientId: data.client_id,
           slug: data.slug,
@@ -409,6 +409,22 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
+
+        // Cache in local storage for instant future redirections
+        try {
+          const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
+          const idx = allPlaques.findIndex((item) => item.id === foundPlaque.id || item.slug.toLowerCase() === normalized);
+          if (idx >= 0) {
+            allPlaques[idx] = { ...allPlaques[idx], ...foundPlaque };
+          } else {
+            allPlaques.push(foundPlaque);
+          }
+          saveStored(PLAQUES_STORAGE_KEY, allPlaques);
+        } catch (cacheErr) {
+          console.warn('Failed to cache plaque locally', cacheErr);
+        }
+
+        return foundPlaque;
       }
     } catch (e) {
       console.warn('Supabase fetchPlaqueBySlug error, falling back to local storage', e);

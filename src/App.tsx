@@ -54,76 +54,56 @@ import { PublicRedirectView } from './components/PublicRedirectView';
 import { GuideStepByStepView } from './components/GuideStepByStepView';
 import { CreatePlaqueModal } from './components/CreatePlaqueModal';
 
+function parsePublicRoute(): { slug: string; source: ScanSource } | null {
+  try {
+    const rawPath = window.location.pathname;
+    const hash = window.location.hash || '';
+    const params = new URLSearchParams(window.location.search);
+    const srcParam = (params.get('src') || 'nfc') as ScanSource;
+
+    // Check if path was passed via fallback query param e.g. ?p=/q/minha-placa (from 404.html on Netlify)
+    const pParam = params.get('p');
+    const path = pParam ? decodeURIComponent(pParam) : rawPath;
+
+    // 1. Handle QR routes /q/:slug or /qr/:slug
+    const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i) ||
+                    hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i);
+    if (qrMatch && qrMatch[1]) {
+      return { slug: decodeURIComponent(qrMatch[1]), source: 'qr' };
+    }
+
+    // 2. Handle NFC / general short links /r/:slug
+    const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_~%]+)/i) ||
+                   hash.match(/^#\/?r\/([a-zA-Z0-9-_~%]+)/i);
+    if (rMatch && rMatch[1]) {
+      return { slug: decodeURIComponent(rMatch[1]), source: srcParam };
+    }
+
+    // 3. Handle query fallback ?q=slug or ?qr=slug
+    const queryQr = params.get('q') || params.get('qr');
+    if (queryQr) {
+      return { slug: decodeURIComponent(queryQr), source: 'qr' };
+    }
+
+    // 4. Handle query fallback ?r=slug
+    const querySlug = params.get('r');
+    if (querySlug) {
+      return { slug: decodeURIComponent(querySlug), source: srcParam };
+    }
+  } catch (e) {
+    console.warn('Path check error', e);
+  }
+  return null;
+}
+
 export default function App() {
   // Check URL for public redirect route e.g. /r/:slug?src=nfc or ?r=slug or /q/:slug
-  const [publicRoute, setPublicRoute] = useState<{ slug: string; source: ScanSource } | null>(() => {
-    try {
-      const path = window.location.pathname;
-      const hash = window.location.hash || '';
-      const params = new URLSearchParams(window.location.search);
-      const srcParam = (params.get('src') || 'nfc') as ScanSource;
-
-      // Handle path /q/:slug or /qr/:slug (Permanent Dynamic QR Code Links)
-      const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
-                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
-      if (qrMatch && qrMatch[1]) {
-        return { slug: qrMatch[1], source: 'qr' };
-      }
-
-      // Handle path /r/:slug (Permanent NFC or General short link)
-      const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) ||
-                     hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
-      if (rMatch && rMatch[1]) {
-        return { slug: rMatch[1], source: srcParam };
-      }
-
-      // Handle query fallback ?q=slug or ?r=slug
-      const queryQr = params.get('q') || params.get('qr');
-      if (queryQr) {
-        return { slug: queryQr, source: 'qr' };
-      }
-      const querySlug = params.get('r');
-      if (querySlug) {
-        return { slug: querySlug, source: srcParam };
-      }
-    } catch (e) {
-      console.warn('Path check error', e);
-    }
-    return null;
-  });
+  const [publicRoute, setPublicRoute] = useState<{ slug: string; source: ScanSource } | null>(() => parsePublicRoute());
 
   // Keep routing synced if user navigates history
   useEffect(() => {
     const handleUrlChange = () => {
-      try {
-        const path = window.location.pathname;
-        const hash = window.location.hash || '';
-        const params = new URLSearchParams(window.location.search);
-        const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
-                        hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
-        if (qrMatch && qrMatch[1]) {
-          setPublicRoute({ slug: qrMatch[1], source: 'qr' });
-          return;
-        }
-        const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) ||
-                       hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
-        if (rMatch && rMatch[1]) {
-          setPublicRoute({ slug: rMatch[1], source: (params.get('src') || 'nfc') as ScanSource });
-          return;
-        }
-        const queryQr = params.get('q') || params.get('qr');
-        if (queryQr) {
-          setPublicRoute({ slug: queryQr, source: 'qr' });
-          return;
-        }
-        const querySlug = params.get('r');
-        if (querySlug) {
-          setPublicRoute({ slug: querySlug, source: (params.get('src') || 'nfc') as ScanSource });
-          return;
-        }
-      } catch (e) {
-        console.warn('Url change check error', e);
-      }
+      setPublicRoute(parsePublicRoute());
     };
 
     window.addEventListener('popstate', handleUrlChange);

@@ -1,0 +1,5 @@
+# Netlify SPA Redirect Rules — GoldFlow NFC
+# Redirect all routes to /index.html with status 200 (URL rewrite)
+# This enables direct access to /q/:slug, /r/:slug, /qr/:slug without 404 errors
+
+/*    /index.html   200

@@ -18,21 +18,26 @@
           var path = window.location.pathname;
           var hash = window.location.hash || '';
           var search = window.location.search || '';
-          var match = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_]+)/) ||
-                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_]+)/);
+          var params = new URLSearchParams(search);
+          var pParam = params.get('p');
+          if (pParam) {
+            path = decodeURIComponent(pParam);
+          }
+
+          var match = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i) ||
+                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i);
           var isQr = !!match;
           if (!match) {
-            match = path.match(/^\/r\/([a-zA-Z0-9-_]+)/) || hash.match(/^#\/?r\/([a-zA-Z0-9-_]+)/);
+            match = path.match(/^\/r\/([a-zA-Z0-9-_~%]+)/i) || hash.match(/^#\/?r\/([a-zA-Z0-9-_~%]+)/i);
           }
-          var params = new URLSearchParams(search);
-          var slug = match ? match[1] : (params.get('q') || params.get('qr') || params.get('r'));
+          var slug = match ? decodeURIComponent(match[1]) : (params.get('q') || params.get('qr') || params.get('r'));
           if (params.get('q') || params.get('qr')) isQr = true;
 
           if (slug) {
             var raw = localStorage.getItem('goldflow_plaques_v2') || localStorage.getItem('goldflow_nfc_plaques');
             if (raw) {
               var plaques = JSON.parse(raw);
-              var norm = slug.trim().toLowerCase();
+              var norm = decodeURIComponent(slug).trim().toLowerCase();
               var p = plaques.find(function(item) {
                 return item.slug && item.slug.toLowerCase() === norm;
               });
