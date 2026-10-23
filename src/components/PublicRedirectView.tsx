@@ -3,6 +3,8 @@ import { ExternalLink, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Plaque, ScanSource } from '../types';
 import { getPlaqueBySlug, fetchPlaqueBySlug, recordPlaqueScan } from '../lib/storage';
 
+import { getStoredSupabaseConfig } from '../lib/supabase';
+
 interface PublicRedirectViewProps {
   slug: string;
   source: ScanSource;
@@ -18,6 +20,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   const [plaque, setPlaque] = useState<Plaque | undefined>(() => getPlaqueBySlug(slug));
   const [loading, setLoading] = useState(!plaque);
   const [lastRedirectedUrl, setLastRedirectedUrl] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Compute destination URL (QR has its own independent target, falling back to NFC target)
   const destinationUrl = React.useMemo(() => {
@@ -34,19 +37,39 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   // Fetch fresh data from Supabase if connected
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
+
     fetchPlaqueBySlug(slug).then((freshPlaque) => {
-      if (isMounted) {
-        if (freshPlaque) {
-          setPlaque(freshPlaque);
+      if (!isMounted) return;
+
+      if (freshPlaque) {
+        setPlaque(freshPlaque);
+
+        // Immediate direct redirect as soon as Supabase query returns
+        if (!freshPlaque.isLocked && freshPlaque.isActive) {
+          let directTarget = source === 'qr' 
+            ? (freshPlaque.qrTargetUrl || freshPlaque.targetUrl) 
+            : freshPlaque.targetUrl;
+          if (directTarget) {
+            directTarget = directTarget.trim();
+            if (!directTarget.startsWith('http://') && !directTarget.startsWith('https://')) {
+              directTarget = `https://${directTarget}`;
+            }
+            try {
+              window.location.replace(directTarget);
+            } catch {
+              window.location.href = directTarget;
+            }
+          }
         }
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => {
       isMounted = false;
     };
-  }, [slug]);
+  }, [slug, source, retryCount]);
 
   // Record scan telemetry in background
   useEffect(() => {
@@ -57,16 +80,14 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
     }
   }, [plaque, slug, source]);
 
-  // Execute direct instant redirection without displaying GoldFlow website
+  // Redirection effect for cached or updated plaque
   useEffect(() => {
     if (!plaque || plaque.isLocked || !plaque.isActive || !destinationUrl) return;
 
     if (lastRedirectedUrl !== destinationUrl) {
       setLastRedirectedUrl(destinationUrl);
 
-      // Instant direct redirection
       try {
-        // Try location replace for cleanest browser history
         window.location.replace(destinationUrl);
       } catch (e1) {
         try {
@@ -81,34 +102,51 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   // 1. Loading state (only shown if not in local cache while waiting for Supabase)
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium text-slate-300">Carregando destino...</p>
+      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center select-none">
+        <div className="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-medium text-slate-300">Consultando placa inteligente no Supabase...</p>
+        <p className="text-xs text-slate-500 font-mono mt-1">/{source === 'qr' ? 'q' : 'r'}/{slug}</p>
       </div>
     );
   }
 
   // 2. Plaque not found
   if (!plaque) {
+    const isConnected = getStoredSupabaseConfig().isConnected;
+
     return (
-      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center select-none">
         <div className="max-w-sm w-full bg-[#0d172b] border border-[#1b2f52] rounded-3xl p-6 flex flex-col items-center gap-4 shadow-xl">
-          <div className="w-14 h-14 rounded-2xl bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400">
+          <div className="w-14 h-14 rounded-2xl bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400">
             <AlertTriangle className="w-7 h-7" />
           </div>
           <div>
             <h2 className="text-lg font-bold">Link Não Encontrado</h2>
             <p className="text-slate-400 text-xs mt-1">
-              A rota <span className="font-mono text-slate-300">/{source === 'qr' ? 'q' : 'r'}/{slug}</span> não foi localizada.
+              A rota <span className="font-mono text-slate-300 font-semibold">/{source === 'qr' ? 'q' : 'r'}/{slug}</span> não foi localizada no banco de dados.
             </p>
+            {!isConnected && (
+              <div className="mt-3 p-3 bg-blue-950/40 border border-blue-800/60 rounded-xl text-left text-[11px] text-blue-200 leading-relaxed">
+                <span className="font-bold text-white block mb-0.5">Dispositivo Novo ou Sem Cache</span>
+                Se esta aplicação está hospedada no Netlify, verifique se as variáveis de ambiente <code className="font-mono text-blue-300">VITE_SUPABASE_URL</code> e <code className="font-mono text-blue-300">VITE_SUPABASE_ANON_KEY</code> foram configuradas no Netlify.
+              </div>
+            )}
           </div>
-          <button
-            onClick={onReturnToDashboard}
-            className="w-full py-2.5 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-slate-300 text-xs font-semibold flex items-center justify-center gap-2 border border-[#1b2f52] transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Voltar ao Painel</span>
-          </button>
+          <div className="w-full flex flex-col gap-2">
+            <button
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-md shadow-blue-950"
+            >
+              <span>Tentar Novamente</span>
+            </button>
+            <button
+              onClick={onReturnToDashboard}
+              className="w-full py-2.5 rounded-xl bg-[#12213d] hover:bg-[#1a3058] text-slate-300 text-xs font-semibold flex items-center justify-center gap-2 border border-[#1b2f52] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar ao Painel</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -117,7 +155,7 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   // 3. Plaque Locked remotely by Admin
   if (plaque.isLocked || !plaque.isActive) {
     return (
-      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#070b14] text-white flex flex-col items-center justify-center p-6 text-center select-none">
         <div className="max-w-sm w-full bg-[#0d172b] border border-red-900/60 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-xl">
           <div className="w-14 h-14 rounded-2xl bg-red-950/80 border border-red-700 flex items-center justify-center text-red-400">
             <Lock className="w-7 h-7" />

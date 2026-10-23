@@ -23,14 +23,20 @@
           if (pParam) {
             path = decodeURIComponent(pParam);
           }
+          if (path.indexOf('://') !== -1) {
+            try {
+              path = new URL(path).pathname;
+            } catch (e) {}
+          }
+          path = path.trim().replace(/\/+$/, '');
 
-          var match = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i) ||
-                      hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i);
+          var match = path.match(/^\/?(?:q|qr)\/([^\/?#]+)/i) ||
+                      hash.match(/^#\/?(?:q|qr)\/([^\/?#]+)/i);
           var isQr = !!match;
           if (!match) {
-            match = path.match(/^\/r\/([a-zA-Z0-9-_~%]+)/i) || hash.match(/^#\/?r\/([a-zA-Z0-9-_~%]+)/i);
+            match = path.match(/^\/?r\/([^\/?#]+)/i) || hash.match(/^#\/?r\/([^\/?#]+)/i);
           }
-          var slug = match ? decodeURIComponent(match[1]) : (params.get('q') || params.get('qr') || params.get('r'));
+          var rawSlug = match ? match[1] : (params.get('q') || params.get('qr') || params.get('r'));
           if (params.get('q') || params.get('qr')) isQr = true;
 
           if (slug) {

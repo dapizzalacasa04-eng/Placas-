@@ -4,8 +4,26 @@
   command = "npm run build"
   publish = "dist"
 
-# Single-Page Application (SPA) rewrite rule
-# Ensures dynamic QR Code routes (/q/:slug, /r/:slug, etc.) resolve to index.html with HTTP 200
+# Forced rewrites for QR Code and NFC short routes
+[[redirects]]
+  from = "/q/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/qr/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/r/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+# Catch-all SPA rewrite rule
 [[redirects]]
   from = "/*"
   to = "/index.html"

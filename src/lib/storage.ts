@@ -1,5 +1,5 @@
 import { Plaque, ScanEvent, UserProfile, UserRole } from '../types';
-import { getSupabaseClient } from './supabase';
+import { getSupabaseClient, ensureSupabaseConfigLoaded } from './supabase';
 
 const USERS_STORAGE_KEY = 'goldflow_users_v2';
 const CURRENT_USER_KEY = 'goldflow_current_user_v2';
@@ -375,45 +375,94 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
 }
 
 export function getPlaqueBySlug(slug: string): Plaque | undefined {
+  if (!slug) return undefined;
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  const normalized = slug.trim().toLowerCase();
-  return allPlaques.find((p) => p.slug.toLowerCase() === normalized);
+  const clean = decodeURIComponent(slug).trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+  const cleanCompact = clean.replace(/[\s_-]+/g, '');
+
+  return allPlaques.find((p) => {
+    const s = (p.slug || '').trim().toLowerCase();
+    const sCompact = s.replace(/[\s_-]+/g, '');
+    return s === clean || sCompact === cleanCompact || p.id.toLowerCase() === clean;
+  });
 }
 
 export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefined> {
-  const normalized = slug.trim().toLowerCase();
+  if (!slug) return undefined;
+  const cleanSlug = decodeURIComponent(slug).trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (!cleanSlug) return undefined;
+
+  // Asynchronously resolve Supabase configuration (localStorage, Vite env, or /goldflow-config.json)
+  await ensureSupabaseConfigLoaded();
+
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
+      // 1. Direct query by slug (case-insensitive)
       const { data, error } = await supabase
         .from('plaques')
         .select('*')
-        .ilike('slug', normalized)
-        .maybeSingle();
+        .ilike('slug', cleanSlug)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (!error && data) {
+      if (error) {
+        console.warn('Supabase fetchPlaqueBySlug notice:', error.message || error);
+      }
+
+      let row = Array.isArray(data) && data.length > 0 ? data[0] : (data && !Array.isArray(data) ? data : null);
+
+      // 2. Alternate slug formats (hyphen vs underscore, or accent-stripped)
+      if (!row) {
+        const normalizedSlug = cleanSlug.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const altSlug = cleanSlug.includes('-') ? cleanSlug.replace(/-/g, '_') : cleanSlug.replace(/_/g, '-');
+        
+        const { data: altData } = await supabase
+          .from('plaques')
+          .select('*')
+          .or(`slug.ilike.${cleanSlug},slug.ilike.${altSlug},slug.ilike.${normalizedSlug}`)
+          .limit(1);
+
+        if (Array.isArray(altData) && altData.length > 0) {
+          row = altData[0];
+        }
+      }
+
+      // 3. Match by UUID ID if scanned with UUID
+      if (!row && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanSlug)) {
+        const { data: idData } = await supabase
+          .from('plaques')
+          .select('*')
+          .eq('id', cleanSlug)
+          .limit(1);
+        if (Array.isArray(idData) && idData.length > 0) {
+          row = idData[0];
+        }
+      }
+
+      if (row) {
         const foundPlaque: Plaque = {
-          id: data.id,
-          clientId: data.client_id,
-          slug: data.slug,
-          title: data.title,
-          targetType: data.target_type,
-          targetUrl: data.target_url,
-          qrTargetType: data.qr_target_type || data.target_type,
-          qrTargetUrl: data.qr_target_url || data.target_url,
-          isActive: data.is_active,
-          isLocked: data.is_locked,
-          lockReason: data.lock_reason,
-          totalNfcScans: data.total_nfc_scans || 0,
-          totalQrScans: data.total_qr_scans || 0,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
+          id: row.id,
+          clientId: row.client_id,
+          slug: row.slug,
+          title: row.title || `Placa /${row.slug}`,
+          targetType: row.target_type || 'custom',
+          targetUrl: row.target_url || row.qr_target_url || 'https://google.com',
+          qrTargetType: row.qr_target_type || row.target_type || 'custom',
+          qrTargetUrl: row.qr_target_url || row.target_url || 'https://google.com',
+          isActive: row.is_active !== false,
+          isLocked: Boolean(row.is_locked),
+          lockReason: row.lock_reason,
+          totalNfcScans: row.total_nfc_scans || 0,
+          totalQrScans: row.total_qr_scans || 0,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
         };
 
         // Cache in local storage for instant future redirections
         try {
           const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-          const idx = allPlaques.findIndex((item) => item.id === foundPlaque.id || item.slug.toLowerCase() === normalized);
+          const idx = allPlaques.findIndex((item) => item.id === foundPlaque.id || item.slug.toLowerCase() === cleanSlug);
           if (idx >= 0) {
             allPlaques[idx] = { ...allPlaques[idx], ...foundPlaque };
           } else {
@@ -430,7 +479,9 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
       console.warn('Supabase fetchPlaqueBySlug error, falling back to local storage', e);
     }
   }
-  return getPlaqueBySlug(slug);
+
+  // Fallback to local storage
+  return getPlaqueBySlug(cleanSlug);
 }
 
 export async function updatePlaque(

@@ -44,6 +44,51 @@ export function saveStoredSupabaseConfig(config: SupabaseConfig) {
 }
 
 let activeClient: SupabaseClient | null = null;
+let configLoadPromise: Promise<SupabaseConfig> | null = null;
+
+export async function ensureSupabaseConfigLoaded(): Promise<SupabaseConfig> {
+  const current = getStoredSupabaseConfig();
+  if (current.isConnected && current.url && current.anonKey) {
+    return current;
+  }
+
+  if (configLoadPromise) {
+    return configLoadPromise;
+  }
+
+  configLoadPromise = (async () => {
+    try {
+      const res = await fetch('/goldflow-config.json', { cache: 'no-cache' });
+      if (res.ok) {
+        const json = await res.json();
+        const url = (json.VITE_SUPABASE_URL || json.url || json.supabaseUrl || '').trim();
+        const anonKey = (
+          json.VITE_SUPABASE_ANON_KEY || 
+          json.anonKey || 
+          json.anon_key || 
+          json.supabaseAnonKey || 
+          ''
+        ).trim();
+
+        if (url && anonKey) {
+          const loadedConfig: SupabaseConfig = {
+            url,
+            anonKey,
+            isConnected: true,
+          };
+          saveStoredSupabaseConfig(loadedConfig);
+          resetSupabaseClient();
+          return loadedConfig;
+        }
+      }
+    } catch {
+      // Ignore network errors when goldflow-config.json is absent
+    }
+    return getStoredSupabaseConfig();
+  })();
+
+  return configLoadPromise;
+}
 
 export function getSupabaseClient(): SupabaseClient | null {
   const config = getStoredSupabaseConfig();
@@ -70,6 +115,7 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 export function resetSupabaseClient() {
   activeClient = null;
+  configLoadPromise = null;
 }
 
 export async function testSupabaseConnection(url: string, anonKey: string): Promise<{ success: boolean; message: string }> {

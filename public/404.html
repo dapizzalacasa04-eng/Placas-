@@ -37,7 +37,7 @@
           var hash = window.location.hash;
 
           // Check if this is a QR (/q/) or NFC (/r/) short link
-          var match = path.match(/^\/(?:q|qr|r)\/([a-zA-Z0-9-_~%]+)/i);
+          var match = path.match(/^\/?(?:q|qr|r)\/([^\/?#]+)/i);
           if (match) {
             // Forward to root with the full route parameter for seamless SPA recovery
             var redirectUrl = '/?p=' + encodeURIComponent(path) + (search ? '&' + search.slice(1) : '') + hash;

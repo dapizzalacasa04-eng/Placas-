@@ -61,37 +61,52 @@ function parsePublicRoute(): { slug: string; source: ScanSource } | null {
     const params = new URLSearchParams(window.location.search);
     const srcParam = (params.get('src') || 'nfc') as ScanSource;
 
-    // Check if path was passed via fallback query param e.g. ?p=/q/minha-placa (from 404.html on Netlify)
-    const pParam = params.get('p');
-    const path = pParam ? decodeURIComponent(pParam) : rawPath;
-
-    // 1. Handle QR routes /q/:slug or /qr/:slug
-    const qrMatch = path.match(/^\/(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i) ||
-                    hash.match(/^#\/?(?:q|qr)\/([a-zA-Z0-9-_~%]+)/i);
-    if (qrMatch && qrMatch[1]) {
-      return { slug: decodeURIComponent(qrMatch[1]), source: 'qr' };
-    }
-
-    // 2. Handle NFC / general short links /r/:slug
-    const rMatch = path.match(/^\/r\/([a-zA-Z0-9-_~%]+)/i) ||
-                   hash.match(/^#\/?r\/([a-zA-Z0-9-_~%]+)/i);
-    if (rMatch && rMatch[1]) {
-      return { slug: decodeURIComponent(rMatch[1]), source: srcParam };
-    }
-
-    // 3. Handle query fallback ?q=slug or ?qr=slug
+    // 1. Direct query parameters ?q=slug or ?qr=slug
     const queryQr = params.get('q') || params.get('qr');
     if (queryQr) {
-      return { slug: decodeURIComponent(queryQr), source: 'qr' };
+      const clean = decodeURIComponent(queryQr).trim().replace(/^\/+|\/+$/g, '');
+      if (clean) return { slug: clean, source: 'qr' };
     }
 
-    // 4. Handle query fallback ?r=slug
+    // 2. Direct query parameter ?r=slug
     const querySlug = params.get('r');
     if (querySlug) {
-      return { slug: decodeURIComponent(querySlug), source: srcParam };
+      const clean = decodeURIComponent(querySlug).trim().replace(/^\/+|\/+$/g, '');
+      if (clean) return { slug: clean, source: srcParam };
+    }
+
+    // 3. Handle path passed via fallback query param e.g. ?p=/q/minha-placa (from 404.html on Netlify)
+    const pParam = params.get('p');
+    let effectivePath = pParam ? decodeURIComponent(pParam) : rawPath;
+
+    if (effectivePath.startsWith('http://') || effectivePath.startsWith('https://')) {
+      try {
+        effectivePath = new URL(effectivePath).pathname;
+      } catch {
+        // Fallback
+      }
+    }
+
+    // Normalize path (strip trailing slashes)
+    const normalized = effectivePath.trim().replace(/\/+$/, '');
+
+    // 4. Handle QR routes /q/:slug or /qr/:slug or #/q/:slug
+    const qrMatch = normalized.match(/^\/?(?:q|qr)\/([^\/?#]+)/i) ||
+                    hash.match(/^#\/?(?:q|qr)\/([^\/?#]+)/i);
+    if (qrMatch && qrMatch[1]) {
+      const clean = decodeURIComponent(qrMatch[1]).trim().replace(/^\/+|\/+$/g, '');
+      if (clean) return { slug: clean, source: 'qr' };
+    }
+
+    // 5. Handle NFC / general short links /r/:slug or #/r/:slug
+    const rMatch = normalized.match(/^\/?r\/([^\/?#]+)/i) ||
+                   hash.match(/^#\/?r\/([^\/?#]+)/i);
+    if (rMatch && rMatch[1]) {
+      const clean = decodeURIComponent(rMatch[1]).trim().replace(/^\/+|\/+$/g, '');
+      if (clean) return { slug: clean, source: srcParam };
     }
   } catch (e) {
-    console.warn('Path check error', e);
+    console.warn('Public route parsing error:', e);
   }
   return null;
 }

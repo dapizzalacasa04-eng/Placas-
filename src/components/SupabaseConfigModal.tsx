@@ -8,7 +8,9 @@ import {
   AlertTriangle, 
   ExternalLink,
   Lock,
-  Sparkles
+  Sparkles,
+  Globe,
+  Download
 } from 'lucide-react';
 import { 
   getStoredSupabaseConfig, 
@@ -37,7 +39,24 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [activeTab, setActiveTab] = useState<'credentials' | 'sql' | 'costs'>('credentials');
+  const [copiedNetlifyEnv, setCopiedNetlifyEnv] = useState(false);
+  const [activeTab, setActiveTab] = useState<'credentials' | 'netlify' | 'sql' | 'costs'>('credentials');
+
+  const downloadConfigFile = () => {
+    const configData = {
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+    };
+    const blob = new Blob([JSON.stringify(configData, null, 2)], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = 'goldflow-config.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  };
 
   const handleTestAndSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +138,19 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
             }`}
           >
             Conectar Projeto
+          </button>
+          <button
+            onClick={() => setActiveTab('netlify')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'netlify'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Netlify (Produção)</span>
+            <span className="text-[10px] px-1.5 py-0.2 bg-blue-950 text-blue-300 rounded font-mono font-bold">
+              QR Codes
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('sql')}
@@ -246,7 +278,96 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
             </form>
           )}
 
-          {/* TAB 2: SQL Script */}
+          {/* TAB 2: Netlify Production Settings */}
+          {activeTab === 'netlify' && (
+            <div className="flex flex-col gap-4 text-xs">
+              <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/60 text-blue-200">
+                <div className="flex items-center gap-2 font-bold text-white text-sm">
+                  <Globe className="w-4 h-4 text-blue-400" />
+                  <span>Por que configurar o Supabase no Netlify?</span>
+                </div>
+                <p className="mt-1 text-slate-300 text-[11px] leading-relaxed">
+                  Quando um cliente escaneia o QR Code no restaurante ou empresa com o celular dele, o celular não tem os dados locais do seu navegador. 
+                  Para que o link consulte o destino correto no Supabase em qualquer celular do mundo, configure estas duas variáveis no Netlify:
+                </p>
+              </div>
+
+              {/* Variable 1 */}
+              <div className="p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52] flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-white text-xs">VITE_SUPABASE_URL</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(url.trim());
+                      setCopiedNetlifyEnv(true);
+                      setTimeout(() => setCopiedNetlifyEnv(false), 2000);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedNetlifyEnv ? 'Copiado!' : 'Copiar Valor'}</span>
+                  </button>
+                </div>
+                <div className="font-mono text-[11px] text-slate-400 truncate bg-[#0b1528] px-3 py-2 rounded-xl border border-[#1e355b]">
+                  {url.trim() || 'https://seu-projeto.supabase.co'}
+                </div>
+              </div>
+
+              {/* Variable 2 */}
+              <div className="p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52] flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-white text-xs">VITE_SUPABASE_ANON_KEY</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(anonKey.trim());
+                      setCopiedNetlifyEnv(true);
+                      setTimeout(() => setCopiedNetlifyEnv(false), 2000);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copiar Valor</span>
+                  </button>
+                </div>
+                <div className="font-mono text-[11px] text-slate-400 truncate bg-[#0b1528] px-3 py-2 rounded-xl border border-[#1e355b]">
+                  {anonKey.trim() || 'sua-chave-anon-publica...'}
+                </div>
+              </div>
+
+              {/* Direct File Download Option */}
+              <div className="p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52] flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-white text-xs">Alternativa sem Variáveis: Arquivo Estático</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Baixe o arquivo de configuração e coloque dentro da pasta <code className="font-mono text-blue-300">public/</code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={downloadConfigFile}
+                    disabled={!url || !anonKey}
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-950 shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Baixar goldflow-config.json</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Netlify Steps */}
+              <div className="p-4 rounded-2xl bg-[#070d1a] border border-[#1b2f52] text-slate-400 text-xs">
+                <strong className="text-white block mb-1">Passos no Netlify Dashboard:</strong>
+                <ol className="list-decimal list-inside space-y-1.5 leading-relaxed">
+                  <li>Abra o painel do seu site no Netlify (<a href="https://app.netlify.com" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">app.netlify.com</a>).</li>
+                  <li>Acesse: <strong>Site configuration</strong> &gt; <strong>Environment variables</strong>.</li>
+                  <li>Clique em <strong>Add a variable</strong> e adicione as duas variáveis acima (<code className="font-mono text-slate-300">VITE_SUPABASE_URL</code> e <code className="font-mono text-slate-300">VITE_SUPABASE_ANON_KEY</code>).</li>
+                  <li>Na aba <strong>Deploys</strong>, clique em <strong>Trigger deploy</strong> &gt; <strong>Deploy site</strong> para aplicar.</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SQL Script */}
           {activeTab === 'sql' && (
             <div className="flex flex-col gap-3.5">
               <div className="flex items-center justify-between">
