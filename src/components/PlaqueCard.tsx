@@ -341,37 +341,32 @@ export const PlaqueCard: React.FC<PlaqueCardProps> = ({
             <span>Testar NFC</span>
           </button>
 
-          {/* Remote lock for Admin */}
-          {userRole === 'admin' ? (
-            <button
-              onClick={() => onToggleLock(plaque)}
-              className={`min-h-[48px] py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors border ${
-                plaque.isLocked
-                  ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-700'
-                  : 'bg-red-950/60 hover:bg-red-900/80 text-red-300 border-red-900'
-              }`}
-            >
-              {plaque.isLocked ? (
-                <>
-                  <Unlock className="w-4 h-4 text-emerald-400" />
-                  <span>Desbloquear</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-4 h-4 text-red-400" />
-                  <span>Bloquear</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => onEditQrDestination(plaque)}
-              className="min-h-[48px] py-3 px-3 rounded-2xl bg-[#070d1a] hover:bg-[#12213d] text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border border-[#1b2f52] transition-colors"
-            >
-              <QrCode className="w-4 h-4" />
-              <span>Editar QR</span>
-            </button>
-          )}
+          {/* Remote lock and reactivation for Admin & Client */}
+          <button
+            onClick={() => onToggleLock(plaque)}
+            className={`min-h-[48px] py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors border ${
+              plaque.isLocked
+                ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-700'
+                : 'bg-red-950/60 hover:bg-red-900/80 text-red-300 border-red-900'
+            }`}
+            title={
+              plaque.isLocked
+                ? (userRole === 'admin' ? 'Desbloquear e reativar link da placa' : 'Reativar link da placa')
+                : 'Bloquear/suspender temporariamente o link da placa'
+            }
+          >
+            {plaque.isLocked ? (
+              <>
+                <Unlock className="w-4 h-4 text-emerald-400" />
+                <span>{userRole === 'admin' ? 'Desbloquear' : 'Reativar'}</span>
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4 text-red-400" />
+                <span>Bloquear</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

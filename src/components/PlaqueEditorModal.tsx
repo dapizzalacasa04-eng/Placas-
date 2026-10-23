@@ -15,7 +15,8 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
-  Layers
+  Layers,
+  Trash2
 } from 'lucide-react';
 import { Plaque, TargetType } from '../types';
 
@@ -28,8 +29,10 @@ interface PlaqueEditorModalProps {
     targetType: TargetType,
     targetUrl: string,
     targetParams?: Plaque['targetParams'],
-    applyScope?: 'both' | 'nfc' | 'qr'
+    applyScope?: 'both' | 'nfc' | 'qr',
+    newTitle?: string
   ) => Promise<void>;
+  onDelete?: (plaqueId: string) => Promise<void>;
 }
 
 export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
@@ -37,9 +40,13 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
 }) => {
   if (!isOpen) return null;
 
+  const [title, setTitle] = useState(plaque.title || '');
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedType, setSelectedType] = useState<TargetType>(plaque.targetType || 'google_review');
   const [customUrl, setCustomUrl] = useState(
     plaque.targetType === 'menu' || plaque.targetType === 'website' || plaque.targetType === 'custom'
@@ -123,7 +130,8 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
           whatsappMessage: selectedType === 'whatsapp' ? waMessage : undefined,
           instagramHandle: selectedType === 'instagram' ? instaHandle : undefined,
         },
-        applyScope
+        applyScope,
+        title.trim()
       );
       onClose();
     } catch (err: unknown) {
@@ -131,6 +139,19 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
       setError(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(plaque.id);
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setDeleting(false);
     }
   };
 
@@ -238,6 +259,20 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
               {error}
             </div>
           )}
+
+          {/* Nome da Placa */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-200">
+              Nome de Identificação da Placa:
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: Balcão Principal, Mesa 04..."
+              className="w-full px-4 py-2.5 rounded-2xl bg-[#070d1a] border border-[#1b2f52] text-xs text-white focus:outline-none focus:border-blue-500 font-sans"
+            />
+          </div>
 
           {/* Passo 1: Escolha do Modelo */}
           <div className="flex flex-col gap-2.5">
@@ -479,6 +514,41 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
             </div>
           </div>
 
+          {/* Delete plaque option if onDelete is provided */}
+          {onDelete && (
+            <div className="pt-3 border-t border-[#1b2f52] flex items-center justify-between">
+              {!showDeleteConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1.5 py-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Excluir Placa</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 bg-red-950/60 border border-red-900/80 px-3 py-1.5 rounded-xl">
+                  <span className="text-[11px] text-red-200 font-bold">Confirmar exclusão permanente?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition-colors"
+                  >
+                    {deleting ? 'Excluindo...' : 'Sim, excluir'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-2 py-1 text-slate-400 hover:text-white text-[11px]"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Form Actions with Buttons */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
@@ -494,7 +564,7 @@ export const PlaqueEditorModal: React.FC<PlaqueEditorModalProps> = ({
               disabled={saving}
               className="py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-blue-950/60 disabled:opacity-50 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
             >
-              <span>{saving ? 'Gravando no Supabase...' : 'Salvar Novo Destino'}</span>
+              <span>{saving ? 'Gravando no Supabase...' : 'Salvar Alterações'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

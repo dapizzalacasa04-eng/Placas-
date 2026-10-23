@@ -78,6 +78,33 @@ function unmarkUserAsDeleted(userId: string) {
   }
 }
 
+const DELETED_PLAQUES_KEY = 'goldflow_deleted_plaques_v2';
+
+function getDeletedPlaqueIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_PLAQUES_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {
+    console.error('Error reading deleted plaques', e);
+  }
+  return new Set();
+}
+
+export function markPlaqueAsDeleted(plaqueId: string) {
+  const set = getDeletedPlaqueIds();
+  set.add(plaqueId);
+  saveStored(DELETED_PLAQUES_KEY, Array.from(set));
+}
+
+export function unmarkPlaqueAsDeleted(plaqueId: string) {
+  const set = getDeletedPlaqueIds();
+  if (set.has(plaqueId)) {
+    set.delete(plaqueId);
+    saveStored(DELETED_PLAQUES_KEY, Array.from(set));
+  }
+}
+
+
 // User state — purely real users without mock or fictitious accounts
 export function getUsers(): UserProfile[] {
   const loaded = getStored<UserProfile[]>(USERS_STORAGE_KEY, INITIAL_USERS);
@@ -193,19 +220,37 @@ export function setCurrentUser(userId: string): UserProfile {
   return found;
 }
 
-// Plaques
+// Plaques — Fully synced with Supabase, bidirectional merge & local tombstone tracking
 export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
   const users = getUsers();
+  const deletedIds = getDeletedPlaqueIds();
+
+  // Load and clean local plaques
+  const rawLocal = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
+  const localPlaques = rawLocal.filter(
+    (p) =>
+      !deletedIds.has(p.id) &&
+      p.id !== 'plaque-1' &&
+      p.id !== 'plaque-2' &&
+      p.id !== 'plaque-3' &&
+      p.slug !== 'bistro-royal-balcao' &&
+      p.slug !== 'bistro-royal-cardapio' &&
+      p.slug !== 'fitprime-checkin'
+  );
+
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
+      // Query plaques from Supabase
       let query = supabase.from('plaques').select('*');
       if (currentUser.role !== 'admin') {
         query = query.eq('client_id', currentUser.id);
       }
       const { data, error } = await query;
       if (!error && data) {
-        const mappedPlaques: Plaque[] = data.map((d: any) => {
+        const remoteMap = new Map<string, Plaque>();
+        for (const d of data) {
+          if (deletedIds.has(d.id)) continue;
           const owner = users.find((u) => u.id === d.client_id);
           const clientLabel = owner
             ? owner.fullName
@@ -213,7 +258,7 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
               : owner.companyName
             : 'Cliente';
 
-          return {
+          const mapped: Plaque = {
             id: d.id,
             clientId: d.client_id,
             clientName: clientLabel,
@@ -231,36 +276,85 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
             createdAt: d.created_at,
             updatedAt: d.updated_at,
           };
+          remoteMap.set(mapped.id, mapped);
+        }
+
+        // Bidirectional merge:
+        // Start with non-deleted local plaques
+        const mergedMap = new Map<string, Plaque>();
+        for (const lp of localPlaques) {
+          if (!deletedIds.has(lp.id)) {
+            mergedMap.set(lp.id, lp);
+          }
+        }
+
+        // Overlay with remote plaques (authoritative from Supabase)
+        for (const [id, rp] of remoteMap.entries()) {
+          mergedMap.set(id, rp);
+        }
+
+        // Auto-sync any local plaque that wasn't in Supabase yet
+        for (const lp of localPlaques) {
+          if (!remoteMap.has(lp.id) && !deletedIds.has(lp.id)) {
+            if (currentUser.role === 'admin' || lp.clientId === currentUser.id) {
+              supabase
+                .from('plaques')
+                .upsert(
+                  {
+                    id: lp.id,
+                    client_id: lp.clientId,
+                    slug: lp.slug,
+                    title: lp.title,
+                    target_type: lp.targetType,
+                    target_url: lp.targetUrl,
+                    qr_target_type: lp.qrTargetType || lp.targetType,
+                    qr_target_url: lp.qrTargetUrl || lp.targetUrl,
+                    is_active: lp.isActive,
+                    is_locked: lp.isLocked,
+                    lock_reason: lp.lockReason,
+                    total_nfc_scans: lp.totalNfcScans || 0,
+                    total_qr_scans: lp.totalQrScans || 0,
+                    created_at: lp.createdAt,
+                    updated_at: lp.updatedAt,
+                  },
+                  { onConflict: 'id' }
+                )
+                .then(({ error: syncErr }) => {
+                  if (syncErr) console.warn('Auto-sync plaque to Supabase warning:', syncErr);
+                });
+            }
+          }
+        }
+
+        const mergedAll = Array.from(mergedMap.values());
+        saveStored(PLAQUES_STORAGE_KEY, mergedAll);
+
+        const enriched = mergedAll.map((p) => {
+          const owner = users.find((u) => u.id === p.clientId);
+          return {
+            ...p,
+            qrTargetUrl: p.qrTargetUrl || p.targetUrl,
+            qrTargetType: p.qrTargetType || p.targetType,
+            clientName: owner
+              ? owner.fullName
+                ? `${owner.fullName}${owner.companyName && owner.companyName !== owner.fullName ? ` (${owner.companyName})` : ''}`
+                : owner.companyName
+              : p.clientName || 'Cliente',
+          };
         });
 
-        // Cache clean Supabase plaques in localStorage
-        if (currentUser.role === 'admin') {
-          saveStored(PLAQUES_STORAGE_KEY, mappedPlaques);
+        if (currentUser.role === 'client') {
+          return enriched.filter((p) => p.clientId === currentUser.id);
         }
-        return mappedPlaques;
+        return enriched;
       }
     } catch (e) {
       console.warn('Supabase query failed, falling back to local storage', e);
     }
   }
 
-  const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  // Clean mock plaques if any
-  const cleaned = allPlaques.filter(
-    (p) =>
-      p.id !== 'plaque-1' &&
-      p.id !== 'plaque-2' &&
-      p.id !== 'plaque-3' &&
-      p.slug !== 'bistro-royal-balcao' &&
-      p.slug !== 'bistro-royal-cardapio' &&
-      p.slug !== 'fitprime-checkin'
-  );
-  if (cleaned.length !== allPlaques.length) {
-    saveStored(PLAQUES_STORAGE_KEY, cleaned);
-  }
-
-  // Populate clientName and ensure qrTargetUrl is set
-  const enriched = cleaned.map((p) => {
+  // Local storage fallback with client enrichment
+  const enriched = localPlaques.map((p) => {
     const owner = users.find((u) => u.id === p.clientId);
     return {
       ...p,
@@ -277,7 +371,6 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
   if (currentUser.role === 'client') {
     return enriched.filter((p) => p.clientId === currentUser.id);
   }
-
   return enriched;
 }
 
@@ -324,13 +417,21 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
   return getPlaqueBySlug(slug);
 }
 
-export async function updatePlaqueDestination(
+export async function updatePlaque(
   user: UserProfile,
   plaqueId: string,
-  targetType: Plaque['targetType'],
-  targetUrl: string,
-  targetParams?: Plaque['targetParams'],
-  applyScope: 'both' | 'nfc' | 'qr' = 'both'
+  data: {
+    title?: string;
+    targetType?: Plaque['targetType'];
+    targetUrl?: string;
+    qrTargetType?: Plaque['targetType'];
+    qrTargetUrl?: string;
+    targetParams?: Plaque['targetParams'];
+    isActive?: boolean;
+    isLocked?: boolean;
+    lockReason?: string;
+    applyScope?: 'both' | 'nfc' | 'qr';
+  }
 ): Promise<Plaque> {
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
   const index = allPlaques.findIndex((p) => p.id === plaqueId);
@@ -342,23 +443,35 @@ export async function updatePlaqueDestination(
     throw new Error('Acesso negado: Você não tem permissão para alterar esta placa.');
   }
 
-  if (plaque.isLocked && user.role !== 'admin') {
-    throw new Error('Esta placa está bloqueada pela administração e não pode ter o destino alterado.');
+  // If plaque was administratively locked, client cannot modify targets
+  if (plaque.isLocked && user.role !== 'admin' && data.isLocked === undefined) {
+    throw new Error('Esta placa está suspensa administrativamente e não pode ter o destino alterado.');
   }
 
-  const cleanUrl = targetUrl.trim();
+  const applyScope = data.applyScope || 'both';
+  const cleanUrl = data.targetUrl !== undefined ? data.targetUrl.trim() : plaque.targetUrl;
+  const cleanQrUrl = data.qrTargetUrl !== undefined ? data.qrTargetUrl.trim() : (plaque.qrTargetUrl || plaque.targetUrl);
+
   const nextTargetUrl = applyScope === 'qr' ? plaque.targetUrl : cleanUrl;
-  const nextTargetType = applyScope === 'qr' ? plaque.targetType : targetType;
-  const nextQrUrl = applyScope === 'nfc' ? (plaque.qrTargetUrl || plaque.targetUrl) : cleanUrl;
-  const nextQrType = applyScope === 'nfc' ? (plaque.qrTargetType || plaque.targetType) : targetType;
+  const nextTargetType = applyScope === 'qr' ? plaque.targetType : (data.targetType || plaque.targetType);
+  const nextQrUrl = applyScope === 'nfc' 
+    ? (plaque.qrTargetUrl || plaque.targetUrl) 
+    : (data.qrTargetUrl !== undefined ? cleanQrUrl : (applyScope === 'both' ? cleanUrl : (plaque.qrTargetUrl || plaque.targetUrl)));
+  const nextQrType = applyScope === 'nfc' 
+    ? (plaque.qrTargetType || plaque.targetType) 
+    : (data.qrTargetType || (applyScope === 'both' ? (data.targetType || plaque.targetType) : (plaque.qrTargetType || plaque.targetType)));
 
   const updated: Plaque = {
     ...plaque,
+    title: data.title !== undefined && data.title.trim() ? data.title.trim() : plaque.title,
     targetType: nextTargetType,
     targetUrl: nextTargetUrl,
     qrTargetType: nextQrType,
     qrTargetUrl: nextQrUrl,
-    targetParams: targetParams || plaque.targetParams,
+    targetParams: data.targetParams !== undefined ? data.targetParams : plaque.targetParams,
+    isActive: data.isActive !== undefined ? data.isActive : plaque.isActive,
+    isLocked: data.isLocked !== undefined ? data.isLocked : plaque.isLocked,
+    lockReason: data.lockReason !== undefined ? data.lockReason : plaque.lockReason,
     updatedAt: new Date().toISOString(),
   };
 
@@ -369,23 +482,26 @@ export async function updatePlaqueDestination(
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const updateData: Record<string, any> = {
+      const updatePayload: Record<string, any> = {
+        title: updated.title,
+        target_type: updated.targetType,
+        target_url: updated.targetUrl,
+        qr_target_type: updated.qrTargetType,
+        qr_target_url: updated.qrTargetUrl,
+        is_active: updated.isActive,
+        is_locked: updated.isLocked,
+        lock_reason: updated.lockReason || null,
         updated_at: updated.updatedAt,
       };
 
-      if (applyScope === 'both' || applyScope === 'nfc') {
-        updateData.target_type = nextTargetType;
-        updateData.target_url = nextTargetUrl;
-      }
-      if (applyScope === 'both' || applyScope === 'qr') {
-        updateData.qr_target_type = nextQrType;
-        updateData.qr_target_url = nextQrUrl;
-      }
-
-      await supabase
+      const { error } = await supabase
         .from('plaques')
-        .update(updateData)
+        .update(updatePayload)
         .eq('id', plaqueId);
+
+      if (error) {
+        console.warn('Supabase plaque update warning:', error.message || error);
+      }
     } catch (e) {
       console.warn('Failed to sync plaque update to Supabase', e);
     }
@@ -394,50 +510,35 @@ export async function updatePlaqueDestination(
   return updated;
 }
 
+export async function updatePlaqueDestination(
+  user: UserProfile,
+  plaqueId: string,
+  targetType: Plaque['targetType'],
+  targetUrl: string,
+  targetParams?: Plaque['targetParams'],
+  applyScope: 'both' | 'nfc' | 'qr' = 'both',
+  newTitle?: string
+): Promise<Plaque> {
+  return updatePlaque(user, plaqueId, {
+    title: newTitle,
+    targetType,
+    targetUrl,
+    targetParams,
+    applyScope,
+  });
+}
+
 export async function updatePlaqueQrDestination(
   user: UserProfile,
   plaqueId: string,
   qrTargetUrl: string,
   qrTargetType: Plaque['targetType'] = 'custom'
 ): Promise<Plaque> {
-  const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  const index = allPlaques.findIndex((p) => p.id === plaqueId);
-  if (index === -1) throw new Error('Placa não encontrada');
-
-  const plaque = allPlaques[index];
-
-  if (user.role !== 'admin' && plaque.clientId !== user.id) {
-    throw new Error('Acesso negado: Você não tem permissão para alterar o QR Code desta placa.');
-  }
-
-  const updated: Plaque = {
-    ...plaque,
-    qrTargetUrl: qrTargetUrl.trim(),
+  return updatePlaque(user, plaqueId, {
+    qrTargetUrl,
     qrTargetType,
-    updatedAt: new Date().toISOString(),
-  };
-
-  allPlaques[index] = updated;
-  saveStored(PLAQUES_STORAGE_KEY, allPlaques);
-
-  // Sync with Supabase if connected
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    try {
-      await supabase
-        .from('plaques')
-        .update({
-          qr_target_url: updated.qrTargetUrl,
-          qr_target_type: updated.qrTargetType,
-          updated_at: updated.updatedAt,
-        })
-        .eq('id', plaqueId);
-    } catch (e) {
-      console.warn('Failed to sync plaque QR update to Supabase', e);
-    }
-  }
-
-  return updated;
+    applyScope: 'qr',
+  });
 }
 
 export async function togglePlaqueLock(
@@ -453,36 +554,23 @@ export async function togglePlaqueLock(
   const plaque = allPlaques[index];
 
   if (user.role !== 'admin') {
-    throw new Error('Apenas administradores GoldFlow podem bloquear/desbloquear placas remotamente.');
-  }
-
-  const updated: Plaque = {
-    ...plaque,
-    isLocked: lockState,
-    lockReason: lockState ? (reason || 'Bloqueio administrativo temporário.') : undefined,
-    updatedAt: new Date().toISOString(),
-  };
-
-  allPlaques[index] = updated;
-  saveStored(PLAQUES_STORAGE_KEY, allPlaques);
-
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    try {
-      await supabase
-        .from('plaques')
-        .update({
-          is_locked: lockState,
-          lock_reason: updated.lockReason,
-          updated_at: updated.updatedAt,
-        })
-        .eq('id', plaqueId);
-    } catch (e) {
-      console.warn('Failed to sync plaque lock to Supabase', e);
+    if (plaque.clientId !== user.id) {
+      throw new Error('Acesso negado: Você só pode bloquear ou reativar suas próprias placas.');
+    }
+    // Prevent client from overriding hard admin lock
+    if (plaque.isLocked && plaque.lockReason && plaque.lockReason.toLowerCase().includes('administrativ')) {
+      throw new Error('Esta placa foi suspensa administrativamente pela GoldFlow NFC. Solicite a reativação à administração.');
     }
   }
 
-  return updated;
+  const effectiveReason = lockState
+    ? (reason || (user.role === 'admin' ? 'Bloqueio administrativo temporário.' : 'Suspensão temporária pelo cliente.'))
+    : undefined;
+
+  return updatePlaque(user, plaqueId, {
+    isLocked: lockState,
+    lockReason: effectiveReason,
+  });
 }
 
 export async function togglePlaqueActive(
@@ -596,9 +684,9 @@ export function getRecentScans(user: UserProfile, plaqueId?: string): ScanEvent[
   return scans.filter((s) => clientPlaqueIds.has(s.plaqueId) && (!plaqueId || s.plaqueId === plaqueId));
 }
 
-// Create new Plaque (Admin only)
+// Create new Plaque (Admin or Client for own company)
 export async function createPlaque(
-  adminUser: UserProfile,
+  user: UserProfile,
   data: {
     clientId: string;
     slug: string;
@@ -609,15 +697,19 @@ export async function createPlaque(
     qrTargetType?: Plaque['targetType'];
   }
 ): Promise<Plaque> {
-  if (adminUser.role !== 'admin') {
-    throw new Error('Apenas administradores podem criar novas placas.');
+  if (user.role !== 'admin' && data.clientId !== user.id) {
+    throw new Error('Acesso negado: Você só pode cadastrar placas vinculadas à sua própria empresa.');
   }
 
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
   const cleanSlug = data.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
+  if (!cleanSlug) {
+    throw new Error('O identificador (slug) da placa é obrigatório.');
+  }
+
   if (allPlaques.some((p) => p.slug.toLowerCase() === cleanSlug)) {
-    throw new Error(`O slug "${cleanSlug}" já está em uso por outra placa.`);
+    throw new Error(`O identificador /${cleanSlug} já está em uso por outra placa.`);
   }
 
   const users = getUsers();
@@ -626,6 +718,8 @@ export async function createPlaque(
   const qrUrl = data.qrTargetUrl?.trim() || data.targetUrl.trim();
   const qrType = data.qrTargetType || data.targetType;
   const newPlaqueId = generateUuid();
+
+  unmarkPlaqueAsDeleted(newPlaqueId);
 
   const newPlaque: Plaque = {
     id: newPlaqueId,
@@ -636,9 +730,9 @@ export async function createPlaque(
         : owner.companyName
       : 'Cliente',
     slug: cleanSlug,
-    title: data.title,
+    title: data.title.trim() || `Placa /${cleanSlug}`,
     targetType: data.targetType,
-    targetUrl: data.targetUrl,
+    targetUrl: data.targetUrl.trim(),
     qrTargetType: qrType,
     qrTargetUrl: qrUrl,
     isActive: true,
@@ -649,30 +743,72 @@ export async function createPlaque(
     updatedAt: new Date().toISOString(),
   };
 
-  allPlaques.push(newPlaque);
-  saveStored(PLAQUES_STORAGE_KEY, allPlaques);
+  const updatedPlaques = allPlaques.filter((p) => p.id !== newPlaqueId);
+  updatedPlaques.push(newPlaque);
+  saveStored(PLAQUES_STORAGE_KEY, updatedPlaques);
 
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from('plaques').insert({
-        id: newPlaqueId,
-        client_id: data.clientId,
-        slug: cleanSlug,
-        title: data.title,
-        target_type: data.targetType,
-        target_url: data.targetUrl,
-        qr_target_type: qrType,
-        qr_target_url: qrUrl,
-        is_active: true,
-        is_locked: false,
-      });
+      const { error } = await supabase.from('plaques').upsert(
+        {
+          id: newPlaqueId,
+          client_id: data.clientId,
+          slug: cleanSlug,
+          title: newPlaque.title,
+          target_type: data.targetType,
+          target_url: newPlaque.targetUrl,
+          qr_target_type: qrType,
+          qr_target_url: qrUrl,
+          is_active: true,
+          is_locked: false,
+          total_nfc_scans: 0,
+          total_qr_scans: 0,
+          created_at: newPlaque.createdAt,
+          updated_at: newPlaque.updatedAt,
+        },
+        { onConflict: 'id' }
+      );
+      if (error) {
+        console.warn('Supabase plaque upsert warning:', error.message || error);
+      }
     } catch (e) {
       console.warn('Failed to insert new plaque in Supabase', e);
     }
   }
 
   return newPlaque;
+}
+
+// Delete Plaque (Admin or Client for own plaque)
+export async function deletePlaque(
+  user: UserProfile,
+  plaqueId: string
+): Promise<void> {
+  const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
+  const plaque = allPlaques.find((p) => p.id === plaqueId);
+  if (!plaque) return;
+
+  if (user.role !== 'admin' && plaque.clientId !== user.id) {
+    throw new Error('Acesso negado: Você só pode excluir suas próprias placas.');
+  }
+
+  markPlaqueAsDeleted(plaqueId);
+
+  const remaining = allPlaques.filter((p) => p.id !== plaqueId);
+  saveStored(PLAQUES_STORAGE_KEY, remaining);
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('plaques').delete().eq('id', plaqueId);
+      if (error) {
+        console.warn('Supabase delete plaque warning:', error.message || error);
+      }
+    } catch (e) {
+      console.warn('Failed to delete plaque in Supabase', e);
+    }
+  }
 }
 
 // Create new Client / Company Profile (Admin only, saved to Supabase & localStorage)

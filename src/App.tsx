@@ -34,6 +34,7 @@ import {
   togglePlaqueLock, 
   getRecentScans,
   createPlaque,
+  deletePlaque,
   createClientProfile,
   deleteClientProfile,
   recordPlaqueScan
@@ -187,24 +188,37 @@ export default function App() {
     showToast(`Perfil alterado para: ${nextUser.fullName} (${nextUser.companyName})`, 'info');
   };
 
-  // Edit destination
+  // Edit destination & plaque metadata
   const handleSaveDestination = async (
     plaqueId: string,
     targetType: TargetType,
     targetUrl: string,
     targetParams?: Plaque['targetParams'],
-    applyScope: 'both' | 'nfc' | 'qr' = 'both'
+    applyScope: 'both' | 'nfc' | 'qr' = 'both',
+    newTitle?: string
   ) => {
-    await updatePlaqueDestination(currentUser, plaqueId, targetType, targetUrl, targetParams, applyScope);
+    await updatePlaqueDestination(currentUser, plaqueId, targetType, targetUrl, targetParams, applyScope, newTitle);
     await refreshData(currentUser);
     showToast(
       applyScope === 'both'
-        ? 'Destino da placa atualizado no Supabase para NFC e QR Code!'
+        ? 'Destino e dados da placa atualizados no Supabase!'
         : applyScope === 'qr'
         ? 'Destino do QR Code permanente atualizado no Supabase!'
         : 'Destino do chip NFC atualizado no Supabase!',
       'success'
     );
+  };
+
+  // Delete plaque
+  const handleDeletePlaque = async (plaqueId: string) => {
+    try {
+      await deletePlaque(currentUser, plaqueId);
+      await refreshData(currentUser);
+      showToast('Placa excluída com sucesso.', 'info');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+    }
   };
 
   // Edit independent permanent QR Code destination
@@ -815,6 +829,7 @@ export default function App() {
           isOpen={!!editingPlaque}
           onClose={() => setEditingPlaque(null)}
           onSave={handleSaveDestination}
+          onDelete={handleDeletePlaque}
         />
       )}
 
