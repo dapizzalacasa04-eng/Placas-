@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { ExternalLink, Lock, AlertTriangle, ArrowLeft, Database, Check } from 'lucide-react';
 import { Plaque, ScanSource } from '../types';
 import { getPlaqueBySlug, fetchPlaqueBySlug, recordPlaqueScan } from '../lib/storage';
-
-import { getStoredSupabaseConfig } from '../lib/supabase';
+import { getStoredSupabaseConfig, saveStoredSupabaseConfig, resetSupabaseClient } from '../lib/supabase';
 
 interface PublicRedirectViewProps {
   slug: string;
@@ -21,6 +20,12 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
   const [loading, setLoading] = useState(!plaque);
   const [lastRedirectedUrl, setLastRedirectedUrl] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Quick configuration inputs if device has no credentials yet
+  const [showQuickConnect, setShowQuickConnect] = useState(false);
+  const [quickUrl, setQuickUrl] = useState('');
+  const [quickAnonKey, setQuickAnonKey] = useState('');
+  const [quickSaveSuccess, setQuickSaveSuccess] = useState(false);
 
   // Compute destination URL (QR has its own independent target, falling back to NFC target)
   const destinationUrl = React.useMemo(() => {
@@ -125,11 +130,80 @@ export const PublicRedirectView: React.FC<PublicRedirectViewProps> = ({
             <p className="text-slate-400 text-xs mt-1">
               A rota <span className="font-mono text-slate-300 font-semibold">/{source === 'qr' ? 'q' : 'r'}/{slug}</span> não foi localizada no banco de dados.
             </p>
-            {!isConnected && (
+            {!isConnected && !showQuickConnect && (
               <div className="mt-3 p-3 bg-blue-950/40 border border-blue-800/60 rounded-xl text-left text-[11px] text-blue-200 leading-relaxed">
                 <span className="font-bold text-white block mb-0.5">Dispositivo Novo ou Sem Cache</span>
                 Se esta aplicação está hospedada no Netlify, verifique se as variáveis de ambiente <code className="font-mono text-blue-300">VITE_SUPABASE_URL</code> e <code className="font-mono text-blue-300">VITE_SUPABASE_ANON_KEY</code> foram configuradas no Netlify.
+                <button
+                  type="button"
+                  onClick={() => setShowQuickConnect(true)}
+                  className="mt-2 text-xs font-bold text-blue-400 hover:text-blue-300 underline block"
+                >
+                  Ou conectar Supabase diretamente neste celular
+                </button>
               </div>
+            )}
+
+            {showQuickConnect && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!quickUrl.trim() || !quickAnonKey.trim()) return;
+                  saveStoredSupabaseConfig({
+                    url: quickUrl.trim(),
+                    anonKey: quickAnonKey.trim(),
+                    isConnected: true,
+                    lastChecked: new Date().toISOString(),
+                  });
+                  resetSupabaseClient();
+                  setQuickSaveSuccess(true);
+                  setTimeout(() => {
+                    setRetryCount((c) => c + 1);
+                  }, 500);
+                }}
+                className="mt-3 p-3.5 bg-[#070d1a] border border-[#1b2f52] rounded-2xl text-left flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <Database className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Conectar Supabase Neste Dispositivo:</span>
+                </div>
+                <div>
+                  <input
+                    type="url"
+                    placeholder="https://seu-projeto.supabase.co"
+                    value={quickUrl}
+                    onChange={(e) => setQuickUrl(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1528] border border-[#1e355b] text-[11px] text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Chave pública anon (eyJ...)"
+                    value={quickAnonKey}
+                    onChange={(e) => setQuickAnonKey(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#0b1528] border border-[#1e355b] text-[11px] text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickConnect(false)}
+                    className="py-1.5 px-3 text-[11px] text-slate-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[11px] font-bold shadow-md shadow-blue-950 flex-1 flex items-center justify-center gap-1.5"
+                  >
+                    {quickSaveSuccess ? <Check className="w-3.5 h-3.5" /> : null}
+                    <span>{quickSaveSuccess ? 'Conectado! Redirecionando...' : 'Salvar e Redirecionar'}</span>
+                  </button>
+                </div>
+              </form>
             )}
           </div>
           <div className="w-full flex flex-col gap-2">

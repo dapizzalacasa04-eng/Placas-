@@ -360,7 +360,12 @@ export default function App() {
       <PublicRedirectView
         slug={publicRoute.slug}
         source={publicRoute.source}
-        onReturnToDashboard={() => setPublicRoute(null)}
+        onReturnToDashboard={() => {
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+          setPublicRoute(null);
+        }}
       />
     );
   }
