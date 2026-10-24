@@ -4,7 +4,26 @@
   command = "npm run build"
   publish = "dist"
 
-# Forced rewrites for QR Code and NFC short routes
+# Rotas explicitas para QR Code e NFC dinâmicos
+[[redirects]]
+  from = "/q/:id"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/qr/:id"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/r/:id"
+  to = "/index.html"
+  status = 200
+  force = true
+
+# Forced rewrites para compatibilidade com wildcards
 [[redirects]]
   from = "/q/*"
   to = "/index.html"

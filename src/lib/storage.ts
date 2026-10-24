@@ -412,7 +412,23 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
 
       let row = Array.isArray(data) && data.length > 0 ? data[0] : (data && !Array.isArray(data) ? data : null);
 
-      // 2. Alternate slug formats (hyphen vs underscore, or accent-stripped)
+      // 2. Query by ID (in case /q/:id route used plaque ID instead of slug)
+      if (!row) {
+        try {
+          const { data: idData, error: idError } = await supabase
+            .from('plaques')
+            .select('*')
+            .eq('id', cleanSlug)
+            .limit(1);
+          if (!idError && Array.isArray(idData) && idData.length > 0) {
+            row = idData[0];
+          }
+        } catch {
+          // Ignore Postgres UUID parsing error if id is UUID and cleanSlug is non-UUID
+        }
+      }
+
+      // 3. Alternate slug formats (hyphen vs underscore, accent-stripped, or leading/trailing slash)
       if (!row) {
         const normalizedSlug = cleanSlug.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const altSlug = cleanSlug.includes('-') ? cleanSlug.replace(/-/g, '_') : cleanSlug.replace(/_/g, '-');
@@ -420,7 +436,7 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
         const { data: altData } = await supabase
           .from('plaques')
           .select('*')
-          .or(`slug.ilike.${cleanSlug},slug.ilike.${altSlug},slug.ilike.${normalizedSlug}`)
+          .or(`slug.ilike.${cleanSlug},slug.ilike./${cleanSlug},slug.ilike.${cleanSlug}/,slug.ilike.${altSlug},slug.ilike.${normalizedSlug}`)
           .limit(1);
 
         if (Array.isArray(altData) && altData.length > 0) {
@@ -428,28 +444,43 @@ export async function fetchPlaqueBySlug(slug: string): Promise<Plaque | undefine
         }
       }
 
-      // 3. Match by UUID ID if scanned with UUID
-      if (!row && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanSlug)) {
-        const { data: idData } = await supabase
+      // 4. Wildcard substring match (e.g. if slug in DB is 'kao-mesa' or 'placa-kao')
+      if (!row) {
+        const { data: wildcardData } = await supabase
           .from('plaques')
           .select('*')
-          .eq('id', cleanSlug)
+          .ilike('slug', `%${cleanSlug}%`)
           .limit(1);
-        if (Array.isArray(idData) && idData.length > 0) {
-          row = idData[0];
+
+        if (Array.isArray(wildcardData) && wildcardData.length > 0) {
+          row = wildcardData[0];
         }
       }
 
       if (row) {
+        const targetUrl = 
+          row.target_url || 
+          row.qr_target_url || 
+          row.targetUrl || 
+          row.qrTargetUrl || 
+          row.destination_url || 
+          row.url || 
+          'https://google.com';
+
+        const qrTargetUrl = 
+          row.qr_target_url || 
+          row.qrTargetUrl || 
+          targetUrl;
+
         const foundPlaque: Plaque = {
           id: row.id,
           clientId: row.client_id,
           slug: row.slug,
           title: row.title || `Placa /${row.slug}`,
           targetType: row.target_type || 'custom',
-          targetUrl: row.target_url || row.qr_target_url || 'https://google.com',
+          targetUrl,
           qrTargetType: row.qr_target_type || row.target_type || 'custom',
-          qrTargetUrl: row.qr_target_url || row.target_url || 'https://google.com',
+          qrTargetUrl,
           isActive: row.is_active !== false,
           isLocked: Boolean(row.is_locked),
           lockReason: row.lock_reason,

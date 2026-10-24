@@ -39,13 +39,15 @@
           var rawSlug = match ? match[1] : (params.get('q') || params.get('qr') || params.get('r'));
           if (params.get('q') || params.get('qr')) isQr = true;
 
-          if (slug) {
+          if (rawSlug) {
+            var norm = decodeURIComponent(rawSlug).trim().replace(/^\/+|\/+$/g, '').toLowerCase();
             var raw = localStorage.getItem('goldflow_plaques_v2') || localStorage.getItem('goldflow_nfc_plaques');
             if (raw) {
               var plaques = JSON.parse(raw);
-              var norm = decodeURIComponent(slug).trim().toLowerCase();
               var p = plaques.find(function(item) {
-                return item.slug && item.slug.toLowerCase() === norm;
+                var s = (item.slug || '').trim().toLowerCase();
+                var id = (item.id || '').trim().toLowerCase();
+                return s === norm || id === norm;
               });
               if (p && !p.isLocked && p.isActive) {
                 var target = isQr ? (p.qrTargetUrl || p.targetUrl) : p.targetUrl;

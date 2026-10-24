@@ -1,9 +1,13 @@
 # Netlify SPA Redirect Rules — GoldFlow NFC
-# Explicit forced rewrites (200!) for QR Code and NFC routes
-# This guarantees mobile phone cameras scanning /q/:slug never hit Netlify's 404
-/q/*    /index.html   200!
-/qr/*   /index.html   200!
-/r/*    /index.html   200!
+# Rotas permanentes para QR Codes e Placas NFC
+/q/:id    /index.html   200!
+/qr/:id   /index.html   200!
+/r/:id    /index.html   200!
+
+# Wildcards para sub-rotas e barras finais (ex: /q/kao/ ou /q/kao?fbclid=...)
+/q/*      /index.html   200!
+/qr/*     /index.html   200!
+/r/*      /index.html   200!
 
 # SPA catch-all rewrite
-/*      /index.html   200
+/*        /index.html   200
