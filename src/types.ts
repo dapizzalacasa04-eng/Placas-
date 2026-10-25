@@ -61,3 +61,30 @@ export interface SupabaseConfig {
   lastChecked?: string;
   projectRef?: string;
 }
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  category: 'google_review' | 'whatsapp' | 'instagram' | 'menu' | 'pix' | 'custom';
+  material: string;
+  dimensions: string;
+  badge?: string;
+  features: string[];
+  isActive: boolean;
+  orderIndex: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AppSettings {
+  contactWhatsapp: string;
+  businessName: string;
+  supportEmail: string;
+  allowPublicRedirectTesting: boolean;
+  heroHeadline: string;
+  heroSubtitle: string;
+}
+

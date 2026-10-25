@@ -22,7 +22,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { downloadQRCodePNG, downloadQRCodeSVG } from './lib/qrCodeHelper';
-import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource } from './types';
+import { Plaque, ScanEvent, UserProfile, TargetType, ScanSource, Product, AppSettings } from './types';
 import { 
   getCurrentUser, 
   getUsers, 
@@ -40,6 +40,22 @@ import {
   recordPlaqueScan
 } from './lib/storage';
 import { getStoredSupabaseConfig } from './lib/supabase';
+import { 
+  fetchProducts, 
+  createProduct, 
+  updateProduct, 
+  deleteProduct, 
+  fetchAppSettings, 
+  saveAppSettings,
+  INITIAL_PRODUCTS,
+  DEFAULT_APP_SETTINGS
+} from './lib/productsStorage';
+import { 
+  getInitialAuthState, 
+  subscribeToAuthChanges, 
+  signOutOwner, 
+  AuthState 
+} from './lib/auth';
 import { Navbar } from './components/Navbar';
 import { BottomTabBar, TabType } from './components/BottomTabBar';
 import { PlaqueCard } from './components/PlaqueCard';
@@ -53,8 +69,16 @@ import { AdminClientsView } from './components/AdminClientsView';
 import { PublicRedirectView } from './components/PublicRedirectView';
 import { GuideStepByStepView } from './components/GuideStepByStepView';
 import { CreatePlaqueModal } from './components/CreatePlaqueModal';
+import { AdminAuthView } from './components/AdminAuthView';
+import { PublicCatalogView } from './components/PublicCatalogView';
+import { ProductsManagerView } from './components/ProductsManagerView';
 
-function parsePublicRoute(): { slug: string; source: ScanSource } | null {
+export type AppRoute = 
+  | { type: 'redirect'; slug: string; source: ScanSource }
+  | { type: 'admin' }
+  | { type: 'public' };
+
+function parseCurrentRoute(): AppRoute {
   try {
     const rawPath = window.location.pathname;
     const hash = window.location.hash || '';
@@ -65,14 +89,14 @@ function parsePublicRoute(): { slug: string; source: ScanSource } | null {
     const queryQr = params.get('q') || params.get('qr');
     if (queryQr) {
       const clean = decodeURIComponent(queryQr).trim().replace(/^\/+|\/+$/g, '');
-      if (clean) return { slug: clean, source: 'qr' };
+      if (clean) return { type: 'redirect', slug: clean, source: 'qr' };
     }
 
     // 2. Direct query parameter ?r=slug
     const querySlug = params.get('r');
     if (querySlug) {
       const clean = decodeURIComponent(querySlug).trim().replace(/^\/+|\/+$/g, '');
-      if (clean) return { slug: clean, source: srcParam };
+      if (clean) return { type: 'redirect', slug: clean, source: srcParam };
     }
 
     // 3. Handle path passed via fallback query param e.g. ?p=/q/minha-placa (from 404.html on Netlify)
@@ -90,35 +114,64 @@ function parsePublicRoute(): { slug: string; source: ScanSource } | null {
     // Normalize path (strip trailing slashes)
     const normalized = effectivePath.trim().replace(/\/+$/, '');
 
-    // 4. Handle QR routes /q/:slug or /qr/:slug or #/q/:slug
+    // 4. Undisclosed Admin Route (No visible button on public site for visitors)
+    // Routes: /gestao-privada-goldflow, /painel-restrito, /admin-restrito, #/gestao-privada-goldflow
+    // Or query parameters: ?admin=gestao-privada-goldflow, ?admin=1, ?painel=1
+    const isAdminRoute = 
+      /^\/?(?:gestao-privada-goldflow|painel-restrito|admin-restrito|admin-privado)(?:\/|$)/i.test(normalized) ||
+      /^#\/?(?:gestao-privada-goldflow|painel-restrito|admin-restrito|admin-privado)(?:\/|$)/i.test(hash) ||
+      params.get('admin') === 'gestao-privada-goldflow' ||
+      params.get('admin') === '1' ||
+      params.get('painel') === '1';
+
+    if (isAdminRoute) {
+      return { type: 'admin' };
+    }
+
+    // 5. Handle QR routes /q/:slug or /qr/:slug or #/q/:slug
     const qrMatch = normalized.match(/^\/?(?:q|qr)\/([^\/?#]+)/i) ||
                     hash.match(/^#\/?(?:q|qr)\/([^\/?#]+)/i);
     if (qrMatch && qrMatch[1]) {
       const clean = decodeURIComponent(qrMatch[1]).trim().replace(/^\/+|\/+$/g, '');
-      if (clean) return { slug: clean, source: 'qr' };
+      if (clean) return { type: 'redirect', slug: clean, source: 'qr' };
     }
 
-    // 5. Handle NFC / general short links /r/:slug or #/r/:slug
+    // 6. Handle NFC / general short links /r/:slug or #/r/:slug
     const rMatch = normalized.match(/^\/?r\/([^\/?#]+)/i) ||
                    hash.match(/^#\/?r\/([^\/?#]+)/i);
     if (rMatch && rMatch[1]) {
       const clean = decodeURIComponent(rMatch[1]).trim().replace(/^\/+|\/+$/g, '');
-      if (clean) return { slug: clean, source: srcParam };
+      if (clean) return { type: 'redirect', slug: clean, source: srcParam };
     }
   } catch (e) {
     console.warn('Public route parsing error:', e);
   }
-  return null;
+
+  // Default: Public visitor view (catalog of products, prices, specifications)
+  return { type: 'public' };
 }
 
 export default function App() {
-  // Check URL for public redirect route e.g. /r/:slug?src=nfc or ?r=slug or /q/:slug
-  const [publicRoute, setPublicRoute] = useState<{ slug: string; source: ScanSource } | null>(() => parsePublicRoute());
+  // Current active route: public catalog, secret admin panel, or direct QR/NFC redirection
+  const [route, setRoute] = useState<AppRoute>(() => parseCurrentRoute());
+
+  // Supabase Auth state for owner
+  const [authState, setAuthState] = useState<AuthState>({
+    isAuthenticated: false,
+    user: null,
+    session: null,
+    loading: true,
+    error: null,
+  });
+
+  // Public products & settings state
+  const [products, setProductsList] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
   // Keep routing synced if user navigates history
   useEffect(() => {
     const handleUrlChange = () => {
-      setPublicRoute(parsePublicRoute());
+      setRoute(parseCurrentRoute());
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -127,6 +180,25 @@ export default function App() {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('hashchange', handleUrlChange);
     };
+  }, []);
+
+  // Initial Auth & Products loading
+  useEffect(() => {
+    getInitialAuthState().then((st) => setAuthState(st));
+    fetchProducts().then((prods) => setProductsList(prods));
+    fetchAppSettings().then((cfg) => setSettings(cfg));
+
+    const unsubscribe = subscribeToAuthChanges((_event, session) => {
+      setAuthState({
+        isAuthenticated: Boolean(session?.user),
+        user: session?.user || null,
+        session: session || null,
+        loading: false,
+        error: null,
+      });
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // State
@@ -174,6 +246,20 @@ export default function App() {
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const navigateToPublic = () => {
+    try {
+      window.history.pushState({}, '', '/');
+    } catch {}
+    setRoute({ type: 'public' });
+  };
+
+  const navigateToAdmin = () => {
+    try {
+      window.history.pushState({}, '', '/gestao-privada-goldflow');
+    } catch {}
+    setRoute({ type: 'admin' });
   };
 
   // Switch active profile (Admin <-> Client)
@@ -300,7 +386,7 @@ export default function App() {
   // Execute scan from simulator
   const handleExecuteScanFromSimulator = async (slug: string, source: 'nfc' | 'qr') => {
     setIsNfcSimulatorOpen(false);
-    setPublicRoute({ slug, source });
+    setRoute({ type: 'redirect', slug, source });
   };
 
   // Test exclusive QR Code route
@@ -309,10 +395,10 @@ export default function App() {
     try {
       const win = window.open(url, '_blank');
       if (!win) {
-        setPublicRoute({ slug: plaque.slug, source: 'qr' });
+        setRoute({ type: 'redirect', slug: plaque.slug, source: 'qr' });
       }
     } catch {
-      setPublicRoute({ slug: plaque.slug, source: 'qr' });
+      setRoute({ type: 'redirect', slug: plaque.slug, source: 'qr' });
     }
   };
 
@@ -354,18 +440,105 @@ export default function App() {
     showToast(`Placa /r/${data.slug} criada com sucesso!`, 'success');
   };
 
-  // If public route requested, render PublicRedirectView
-  if (publicRoute) {
+  // Product management handlers (Owner only, protected by Supabase Auth and RLS)
+  const handleCreateProduct = async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      await createProduct(data);
+      const updated = await fetchProducts();
+      setProductsList(updated);
+      showToast('Produto cadastrado e protegido no Supabase!', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+      throw err;
+    }
+  };
+
+  const handleUpdateProduct = async (id: string, patch: Partial<Omit<Product, 'id'>>) => {
+    try {
+      await updateProduct(id, patch);
+      const updated = await fetchProducts();
+      setProductsList(updated);
+      showToast('Produto e preço atualizados no Supabase!', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+      throw err;
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct(id);
+      const updated = await fetchProducts();
+      setProductsList(updated);
+      showToast('Produto excluído com sucesso.', 'info');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+      throw err;
+    }
+  };
+
+  const handleSaveSettings = async (patch: Partial<AppSettings>) => {
+    try {
+      const updated = await saveAppSettings(patch);
+      setSettings(updated);
+      showToast('Configurações salvas no Supabase!', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(msg, 'error');
+      throw err;
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOutOwner();
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+      session: null,
+      loading: false,
+      error: null,
+    });
+    showToast('Sessão administrativa encerrada.', 'info');
+    navigateToPublic();
+  };
+
+  // 1. ROUTE A: Public Redirect Route (/q/:slug or /r/:slug)
+  if (route.type === 'redirect') {
     return (
       <PublicRedirectView
-        slug={publicRoute.slug}
-        source={publicRoute.source}
-        onReturnToDashboard={() => {
-          try {
-            window.history.pushState({}, '', '/');
-          } catch {}
-          setPublicRoute(null);
+        slug={route.slug}
+        source={route.source}
+        onReturnToDashboard={navigateToPublic}
+      />
+    );
+  }
+
+  // 2. ROUTE B: Public Visitor View (Default / route with zero admin buttons for visitors)
+  if (route.type === 'public') {
+    return (
+      <PublicCatalogView
+        products={products}
+        settings={settings}
+        samplePlaques={plaques}
+        onTestPublicRoute={(slug, source) => setRoute({ type: 'redirect', slug, source })}
+      />
+    );
+  }
+
+  // 3. ROUTE C: Private Admin Route (/gestao-privada-goldflow)
+  // Protected by Supabase Auth: If not authenticated, render login screen
+  if (!authState.isAuthenticated) {
+    return (
+      <AdminAuthView
+        onAuthenticated={() => {
+          getInitialAuthState().then(setAuthState);
+          showToast('Autenticado com sucesso via Supabase Auth!', 'success');
         }}
+        onReturnToPublic={navigateToPublic}
+        onOpenSupabaseConfig={() => setIsSupabaseModalOpen(true)}
       />
     );
   }
@@ -394,6 +567,9 @@ export default function App() {
         onOpenNfcSimulator={() => setIsNfcSimulatorOpen(true)}
         onOpenNewPlaqueModal={() => setIsCreatePlaqueOpen(true)}
         isSupabaseConnected={isSupabaseConnected}
+        onSignOut={handleSignOut}
+        onViewPublicSite={navigateToPublic}
+        authEmail={authState.user?.email}
       />
 
       {/* Toast Notification */}
@@ -514,7 +690,7 @@ export default function App() {
                     onOpenQrStudio={(p) => setQrStudioPlaque(p)}
                     onToggleLock={handleToggleLock}
                     onSimulateTap={(p) => {
-                      setPublicRoute({ slug: p.slug, source: 'nfc' });
+                      setRoute({ type: 'redirect', slug: p.slug, source: 'nfc' });
                     }}
                     onTestQr={handleTestQrRoute}
                   />
@@ -802,6 +978,18 @@ export default function App() {
             onTestQr={handleTestQrRoute}
           />
         )}
+
+        {/* TAB 6: PRODUTOS & PREÇOS (ADMIN ONLY) */}
+        {activeTab === 'products' && currentUser.role === 'admin' && (
+          <ProductsManagerView
+            products={products}
+            settings={settings}
+            onCreateProduct={handleCreateProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+            onSaveSettings={handleSaveSettings}
+          />
+        )}
       </main>
 
       {/* Bottom Mobile Tab Bar */}
@@ -839,7 +1027,7 @@ export default function App() {
           isOpen={!!qrDestinationPlaque}
           onClose={() => setQrDestinationPlaque(null)}
           onSaveQrDestination={handleSaveQrLink}
-          onSimulateScan={(slug, source) => setPublicRoute({ slug, source })}
+          onSimulateScan={(slug, source) => setRoute({ type: 'redirect', slug, source })}
         />
       )}
 
@@ -850,7 +1038,7 @@ export default function App() {
           isOpen={!!qrStudioPlaque}
           onClose={() => setQrStudioPlaque(null)}
           onSaveQrLink={handleSaveQrLink}
-          onSimulateScan={(slug, source) => setPublicRoute({ slug, source })}
+          onSimulateScan={(slug, source) => setRoute({ type: 'redirect', slug, source })}
         />
       )}
 

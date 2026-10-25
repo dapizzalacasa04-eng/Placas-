@@ -248,7 +248,9 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
       }
       const { data, error } = await query;
       if (!error && data) {
-        const remoteMap = new Map<string, Plaque>();
+        const normalizeSlugKey = (s: string) => (s || '').trim().toLowerCase().replace(/^\/+|\/+$/g, '');
+
+        const remoteBySlug = new Map<string, Plaque>();
         for (const d of data) {
           if (deletedIds.has(d.id)) continue;
           const owner = users.find((u) => u.id === d.client_id);
@@ -276,57 +278,85 @@ export async function getPlaques(currentUser: UserProfile): Promise<Plaque[]> {
             createdAt: d.created_at,
             updatedAt: d.updated_at,
           };
-          remoteMap.set(mapped.id, mapped);
+          remoteBySlug.set(normalizeSlugKey(mapped.slug), mapped);
         }
 
-        // Bidirectional merge:
-        // Start with non-deleted local plaques
-        const mergedMap = new Map<string, Plaque>();
+        // Bidirectional merge keyed by SLUG (the true physical unique identity):
+        const mergedBySlug = new Map<string, Plaque>();
+
+        // 1. Add non-deleted local plaques first
         for (const lp of localPlaques) {
           if (!deletedIds.has(lp.id)) {
-            mergedMap.set(lp.id, lp);
-          }
-        }
-
-        // Overlay with remote plaques (authoritative from Supabase)
-        for (const [id, rp] of remoteMap.entries()) {
-          mergedMap.set(id, rp);
-        }
-
-        // Auto-sync any local plaque that wasn't in Supabase yet
-        for (const lp of localPlaques) {
-          if (!remoteMap.has(lp.id) && !deletedIds.has(lp.id)) {
-            if (currentUser.role === 'admin' || lp.clientId === currentUser.id) {
-              supabase
-                .from('plaques')
-                .upsert(
-                  {
-                    id: lp.id,
-                    client_id: lp.clientId,
-                    slug: lp.slug,
-                    title: lp.title,
-                    target_type: lp.targetType,
-                    target_url: lp.targetUrl,
-                    qr_target_type: lp.qrTargetType || lp.targetType,
-                    qr_target_url: lp.qrTargetUrl || lp.targetUrl,
-                    is_active: lp.isActive,
-                    is_locked: lp.isLocked,
-                    lock_reason: lp.lockReason,
-                    total_nfc_scans: lp.totalNfcScans || 0,
-                    total_qr_scans: lp.totalQrScans || 0,
-                    created_at: lp.createdAt,
-                    updated_at: lp.updatedAt,
-                  },
-                  { onConflict: 'id' }
-                )
-                .then(({ error: syncErr }) => {
-                  if (syncErr) console.warn('Auto-sync plaque to Supabase warning:', syncErr);
-                });
+            const key = normalizeSlugKey(lp.slug);
+            const remote = remoteBySlug.get(key);
+            if (remote) {
+              // Remote exists: align local ID to remote ID and use authoritative remote data
+              // unless local has an explicitly newer updatedAt
+              const localTime = new Date(lp.updatedAt || 0).getTime();
+              const remoteTime = new Date(remote.updatedAt || 0).getTime();
+              if (localTime > remoteTime + 2000) {
+                // Local is genuinely newer: keep local destination but adopt remote ID
+                mergedBySlug.set(key, { ...lp, id: remote.id });
+              } else {
+                mergedBySlug.set(key, remote);
+              }
+            } else {
+              mergedBySlug.set(key, lp);
             }
           }
         }
 
-        const mergedAll = Array.from(mergedMap.values());
+        // 2. Overlay any remote plaques not yet represented
+        for (const [key, rp] of remoteBySlug.entries()) {
+          if (!mergedBySlug.has(key)) {
+            mergedBySlug.set(key, rp);
+          }
+        }
+
+        // 3. Auto-sync any local-only plaque to Supabase
+        for (const [key, p] of mergedBySlug.entries()) {
+          if (!remoteBySlug.has(key) && !deletedIds.has(p.id)) {
+            if (currentUser.role === 'admin' || p.clientId === currentUser.id) {
+              const syncPayload: Record<string, any> = {
+                id: p.id,
+                client_id: p.clientId,
+                slug: p.slug,
+                title: p.title,
+                target_type: p.targetType,
+                target_url: p.targetUrl,
+                qr_target_type: p.qrTargetType || p.targetType,
+                qr_target_url: p.qrTargetUrl || p.targetUrl,
+                is_active: p.isActive,
+                is_locked: p.isLocked,
+                lock_reason: p.lockReason,
+                total_nfc_scans: p.totalNfcScans || 0,
+                total_qr_scans: p.totalQrScans || 0,
+                created_at: p.createdAt,
+                updated_at: p.updatedAt,
+              };
+
+              (async () => {
+                try {
+                  const { error: syncErr } = await supabase
+                    .from('plaques')
+                    .upsert(syncPayload, { onConflict: 'slug' });
+                  if (syncErr && syncErr.code === '42703') {
+                    delete syncPayload.qr_target_type;
+                    delete syncPayload.qr_target_url;
+                    syncPayload.target_url = p.qrTargetUrl || p.targetUrl;
+                    await supabase.from('plaques').upsert(syncPayload, { onConflict: 'slug' });
+                  } else if (syncErr) {
+                    console.warn('Auto-sync plaque to Supabase warning:', syncErr);
+                  }
+                } catch (err: unknown) {
+                  console.warn('Auto-sync failed:', err);
+                }
+              })();
+            }
+          }
+        }
+
+        const mergedAll = Array.from(mergedBySlug.values());
         saveStored(PLAQUES_STORAGE_KEY, mergedAll);
 
         const enriched = mergedAll.map((p) => {
@@ -532,7 +562,10 @@ export async function updatePlaque(
   }
 ): Promise<Plaque> {
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  const index = allPlaques.findIndex((p) => p.id === plaqueId);
+  let index = allPlaques.findIndex((p) => p.id === plaqueId);
+  if (index === -1) {
+    index = allPlaques.findIndex((p) => p.slug.toLowerCase() === plaqueId.toLowerCase());
+  }
   if (index === -1) throw new Error('Placa não encontrada');
 
   const plaque = allPlaques[index];
@@ -592,16 +625,120 @@ export async function updatePlaque(
         updated_at: updated.updatedAt,
       };
 
-      const { error } = await supabase
+      // 1. Try update by id with select to check how many rows were actually matched
+      let { data: updatedRows, error: updateError } = await supabase
         .from('plaques')
         .update(updatePayload)
-        .eq('id', plaqueId);
+        .eq('id', plaque.id)
+        .select();
 
-      if (error) {
-        console.warn('Supabase plaque update warning:', error.message || error);
+      // Handle legacy schema where qr_target_url or qr_target_type columns do not exist yet (error 42703)
+      if (updateError && updateError.code === '42703') {
+        const legacyPayload = {
+          title: updated.title,
+          target_type: updated.targetType,
+          target_url: (updated.qrTargetUrl || updated.targetUrl),
+          is_active: updated.isActive,
+          is_locked: updated.isLocked,
+          lock_reason: updated.lockReason || null,
+          updated_at: updated.updatedAt,
+        };
+        const retryRes = await supabase
+          .from('plaques')
+          .update(legacyPayload)
+          .eq('id', plaque.id)
+          .select();
+        updatedRows = retryRes.data;
+        updateError = retryRes.error;
       }
-    } catch (e) {
+
+      // 2. If 0 rows were updated by id (e.g. ID mismatch between devices), update by slug!
+      if (!updateError && (!updatedRows || updatedRows.length === 0)) {
+        let slugRes = await supabase
+          .from('plaques')
+          .update(updatePayload)
+          .ilike('slug', plaque.slug)
+          .select();
+
+        if (slugRes.error && slugRes.error.code === '42703') {
+          const legacyPayload = {
+            title: updated.title,
+            target_type: updated.targetType,
+            target_url: (updated.qrTargetUrl || updated.targetUrl),
+            is_active: updated.isActive,
+            is_locked: updated.isLocked,
+            lock_reason: updated.lockReason || null,
+            updated_at: updated.updatedAt,
+          };
+          slugRes = await supabase
+            .from('plaques')
+            .update(legacyPayload)
+            .ilike('slug', plaque.slug)
+            .select();
+        }
+        updatedRows = slugRes.data;
+        updateError = slugRes.error;
+      }
+
+      // 3. If still 0 rows, the plaque does not exist on remote Supabase yet: upsert it with onConflict: 'slug'
+      if (!updateError && (!updatedRows || updatedRows.length === 0)) {
+        const fullPayload: Record<string, any> = {
+          id: plaque.id,
+          client_id: updated.clientId,
+          slug: updated.slug,
+          title: updated.title,
+          target_type: updated.targetType,
+          target_url: updated.targetUrl,
+          qr_target_type: updated.qrTargetType,
+          qr_target_url: updated.qrTargetUrl,
+          is_active: updated.isActive,
+          is_locked: updated.isLocked,
+          lock_reason: updated.lockReason || null,
+          total_nfc_scans: updated.totalNfcScans || 0,
+          total_qr_scans: updated.totalQrScans || 0,
+          created_at: updated.createdAt,
+          updated_at: updated.updatedAt,
+        };
+
+        let upsertRes = await supabase
+          .from('plaques')
+          .upsert(fullPayload, { onConflict: 'slug' })
+          .select();
+
+        if (upsertRes.error && upsertRes.error.code === '42703') {
+          delete fullPayload.qr_target_type;
+          delete fullPayload.qr_target_url;
+          fullPayload.target_url = updated.qrTargetUrl || updated.targetUrl;
+          upsertRes = await supabase
+            .from('plaques')
+            .upsert(fullPayload, { onConflict: 'slug' })
+            .select();
+        }
+        updatedRows = upsertRes.data;
+        updateError = upsertRes.error;
+      }
+
+      // Align local ID with remote ID if remote returned a different UUID
+      if (Array.isArray(updatedRows) && updatedRows.length > 0) {
+        const remoteRow = updatedRows[0];
+        if (remoteRow.id && remoteRow.id !== updated.id) {
+          updated.id = remoteRow.id;
+          allPlaques[index] = updated;
+          saveStored(PLAQUES_STORAGE_KEY, allPlaques);
+        }
+      }
+
+      if (updateError) {
+        console.error('Supabase plaque update error:', updateError);
+        if (updateError.code === '42501') {
+          throw new Error('Permissão negada (RLS do Supabase): As políticas de segurança bloquearam a atualização. Execute o Script SQL na aba "Script SQL" para liberar permissões.');
+        }
+      }
+    } catch (e: any) {
       console.warn('Failed to sync plaque update to Supabase', e);
+      if (e?.message && e.message.includes('RLS')) {
+        throw e;
+      }
     }
   }
 
@@ -806,17 +943,63 @@ export async function createPlaque(
     throw new Error('O identificador (slug) da placa é obrigatório.');
   }
 
-  if (allPlaques.some((p) => p.slug.toLowerCase() === cleanSlug)) {
-    throw new Error(`O identificador /${cleanSlug} já está em uso por outra placa.`);
-  }
-
   const users = getUsers();
   const owner = users.find((u) => u.id === data.clientId);
 
   const qrUrl = data.qrTargetUrl?.trim() || data.targetUrl.trim();
   const qrType = data.qrTargetType || data.targetType;
-  const newPlaqueId = generateUuid();
 
+  const supabase = getSupabaseClient();
+  let existingRemotePlaque: any = null;
+
+  // Check remote Supabase if connected
+  if (supabase) {
+    try {
+      const { data: remoteData } = await supabase
+        .from('plaques')
+        .select('*')
+        .ilike('slug', cleanSlug)
+        .limit(1);
+
+      if (Array.isArray(remoteData) && remoteData.length > 0) {
+        existingRemotePlaque = remoteData[0];
+      }
+    } catch (err) {
+      console.warn('Supabase remote slug check warning:', err);
+    }
+  }
+
+  const existingLocal = allPlaques.find((p) => p.slug.toLowerCase() === cleanSlug);
+
+  if (existingRemotePlaque && user.role !== 'admin' && existingRemotePlaque.client_id !== user.id) {
+    throw new Error(`O identificador /${cleanSlug} já está em uso por outro cliente.`);
+  }
+
+  if (existingLocal && !existingRemotePlaque && user.role !== 'admin' && existingLocal.clientId !== user.id) {
+    throw new Error(`O identificador /${cleanSlug} já está em uso por outra placa.`);
+  }
+
+  // Ensure owner profile exists in Supabase profiles table first
+  if (supabase && owner) {
+    try {
+      await supabase.from('profiles').upsert(
+        {
+          id: owner.id,
+          email: owner.email,
+          role: owner.role,
+          full_name: owner.fullName,
+          company_name: owner.companyName,
+          phone: owner.phone,
+          created_at: owner.createdAt,
+        },
+        { onConflict: 'id' }
+      );
+    } catch (profErr) {
+      console.warn('Ensuring profile before plaque creation notice:', profErr);
+    }
+  }
+
+  const newPlaqueId = existingRemotePlaque?.id || existingLocal?.id || generateUuid();
   unmarkPlaqueAsDeleted(newPlaqueId);
 
   const newPlaque: Plaque = {
@@ -835,43 +1018,71 @@ export async function createPlaque(
     qrTargetUrl: qrUrl,
     isActive: true,
     isLocked: false,
-    totalNfcScans: 0,
-    totalQrScans: 0,
-    createdAt: new Date().toISOString(),
+    totalNfcScans: existingRemotePlaque?.total_nfc_scans || existingLocal?.totalNfcScans || 0,
+    totalQrScans: existingRemotePlaque?.total_qr_scans || existingLocal?.totalQrScans || 0,
+    createdAt: existingRemotePlaque?.created_at || existingLocal?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  const updatedPlaques = allPlaques.filter((p) => p.id !== newPlaqueId);
+  // Update local storage
+  const updatedPlaques = allPlaques.filter(
+    (p) => p.id !== newPlaqueId && p.slug.toLowerCase() !== cleanSlug
+  );
   updatedPlaques.push(newPlaque);
   saveStored(PLAQUES_STORAGE_KEY, updatedPlaques);
 
-  const supabase = getSupabaseClient();
+  // Sync to Supabase with onConflict: 'slug' and fallback for older schemas
   if (supabase) {
     try {
-      const { error } = await supabase.from('plaques').upsert(
-        {
-          id: newPlaqueId,
-          client_id: data.clientId,
-          slug: cleanSlug,
-          title: newPlaque.title,
-          target_type: data.targetType,
-          target_url: newPlaque.targetUrl,
-          qr_target_type: qrType,
-          qr_target_url: qrUrl,
-          is_active: true,
-          is_locked: false,
-          total_nfc_scans: 0,
-          total_qr_scans: 0,
-          created_at: newPlaque.createdAt,
-          updated_at: newPlaque.updatedAt,
-        },
-        { onConflict: 'id' }
-      );
+      const plaquePayload: Record<string, any> = {
+        id: newPlaqueId,
+        client_id: data.clientId,
+        slug: cleanSlug,
+        title: newPlaque.title,
+        target_type: data.targetType,
+        target_url: newPlaque.targetUrl,
+        qr_target_type: qrType,
+        qr_target_url: qrUrl,
+        is_active: true,
+        is_locked: false,
+        total_nfc_scans: newPlaque.totalNfcScans,
+        total_qr_scans: newPlaque.totalQrScans,
+        created_at: newPlaque.createdAt,
+        updated_at: newPlaque.updatedAt,
+      };
+
+      let { data: savedRows, error } = await supabase
+        .from('plaques')
+        .upsert(plaquePayload, { onConflict: 'slug' })
+        .select();
+
+      if (error && error.code === '42703') {
+        delete plaquePayload.qr_target_type;
+        delete plaquePayload.qr_target_url;
+        plaquePayload.target_url = qrUrl || newPlaque.targetUrl;
+        const retry = await supabase
+          .from('plaques')
+          .upsert(plaquePayload, { onConflict: 'slug' })
+          .select();
+        savedRows = retry.data;
+        error = retry.error;
+      }
+
+      if (Array.isArray(savedRows) && savedRows.length > 0 && savedRows[0].id) {
+        newPlaque.id = savedRows[0].id;
+      }
+
       if (error) {
         console.warn('Supabase plaque upsert warning:', error.message || error);
+        if (error.code === '42501') {
+          throw new Error('Aviso de RLS: O Supabase bloqueou o salvamento da placa. Execute o script SQL no Supabase para liberar o acesso.');
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Failed to insert new plaque in Supabase', e);
+      if (e?.message && e.message.includes('RLS')) {
+        throw e;
+      }
     }
   }
 
@@ -884,22 +1095,31 @@ export async function deletePlaque(
   plaqueId: string
 ): Promise<void> {
   const allPlaques = getStored<Plaque[]>(PLAQUES_STORAGE_KEY, INITIAL_PLAQUES);
-  const plaque = allPlaques.find((p) => p.id === plaqueId);
+  const plaque = allPlaques.find((p) => p.id === plaqueId || p.slug.toLowerCase() === plaqueId.toLowerCase());
   if (!plaque) return;
 
   if (user.role !== 'admin' && plaque.clientId !== user.id) {
     throw new Error('Acesso negado: Você só pode excluir suas próprias placas.');
   }
 
-  markPlaqueAsDeleted(plaqueId);
+  markPlaqueAsDeleted(plaque.id);
 
-  const remaining = allPlaques.filter((p) => p.id !== plaqueId);
+  const remaining = allPlaques.filter((p) => p.id !== plaque.id && p.slug !== plaque.slug);
   saveStored(PLAQUES_STORAGE_KEY, remaining);
 
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { error } = await supabase.from('plaques').delete().eq('id', plaqueId);
+      const { data: delData, error } = await supabase
+        .from('plaques')
+        .delete()
+        .eq('id', plaque.id)
+        .select();
+
+      if (!error && (!delData || delData.length === 0) && plaque.slug) {
+        await supabase.from('plaques').delete().ilike('slug', plaque.slug);
+      }
+
       if (error) {
         console.warn('Supabase delete plaque warning:', error.message || error);
       }

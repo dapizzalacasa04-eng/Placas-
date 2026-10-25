@@ -1,8 +1,7 @@
-import React from 'react';
-import { Layers, QrCode, BarChart3, Users, HelpCircle } from 'lucide-react';
+import { Layers, QrCode, BarChart3, Users, HelpCircle, ShoppingBag } from 'lucide-react';
 import { UserRole } from '../types';
 
-export type TabType = 'plaques' | 'guide' | 'qr_studio' | 'analytics' | 'clients';
+export type TabType = 'plaques' | 'products' | 'guide' | 'qr_studio' | 'analytics' | 'clients';
 
 interface BottomTabBarProps {
   activeTab: TabType;
@@ -24,11 +23,15 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       icon: Layers,
       badge: plaquesCount,
     },
-    {
-      id: 'guide' as TabType,
-      label: 'Passo a Passo',
-      icon: HelpCircle,
-    },
+    ...(userRole === 'admin'
+      ? [
+          {
+            id: 'products' as TabType,
+            label: 'Produtos',
+            icon: ShoppingBag,
+          },
+        ]
+      : []),
     {
       id: 'qr_studio' as TabType,
       label: 'QR Code',
@@ -47,7 +50,13 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             icon: Users,
           },
         ]
-      : []),
+      : [
+          {
+            id: 'guide' as TabType,
+            label: 'Ajuda',
+            icon: HelpCircle,
+          },
+        ]),
   ];
 
   return (

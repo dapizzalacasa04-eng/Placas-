@@ -1,5 +1,19 @@
 import React from 'react';
-import { Radio, Database, Smartphone, Layers, QrCode, BarChart3, Users, HelpCircle, Plus } from 'lucide-react';
+import { 
+  Radio, 
+  Database, 
+  Smartphone, 
+  Layers, 
+  QrCode, 
+  BarChart3, 
+  Users, 
+  HelpCircle, 
+  Plus, 
+  ShoppingBag, 
+  LogOut, 
+  Globe,
+  ShieldCheck
+} from 'lucide-react';
 import { UserProfile } from '../types';
 import { TabType } from './BottomTabBar';
 
@@ -13,6 +27,9 @@ interface NavbarProps {
   onOpenNfcSimulator: () => void;
   onOpenNewPlaqueModal: () => void;
   isSupabaseConnected: boolean;
+  onSignOut?: () => void;
+  onViewPublicSite?: () => void;
+  authEmail?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,6 +42,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNfcSimulator,
   onOpenNewPlaqueModal,
   isSupabaseConnected,
+  onSignOut,
+  onViewPublicSite,
+  authEmail,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#060b17]/95 backdrop-blur-md border-b border-[#1b2f52] px-4 md:px-8 py-3.5 transition-colors">
@@ -46,11 +66,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 GoldFlow
               </span>
               <span className="text-blue-400 font-extrabold text-[11px] tracking-wider uppercase bg-blue-950 px-2 py-0.5 rounded-lg border border-blue-800/80">
-                NFC
+                Admin
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 hidden xs:block">
-              Placas Inteligentes & QR Codes
+            <span className="text-[11px] text-slate-400 hidden xs:block truncate max-w-[180px]">
+              {authEmail || 'Gestão Privada'}
             </span>
           </div>
         </div>
@@ -59,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="hidden lg:flex items-center gap-1 bg-[#0b1528] p-1.5 rounded-2xl border border-[#1b2f52]">
           <button
             onClick={() => onSelectTab('plaques')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'plaques'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
                 : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
@@ -69,21 +89,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Placas & Links</span>
           </button>
 
-          <button
-            onClick={() => onSelectTab('guide')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'guide'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
-                : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
-            }`}
-          >
-            <HelpCircle className="w-4 h-4 text-blue-400" />
-            <span>Passo a Passo</span>
-          </button>
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={() => onSelectTab('products')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'products'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
+                  : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 text-emerald-400" />
+              <span>Produtos & Preços</span>
+            </button>
+          )}
 
           <button
             onClick={() => onSelectTab('qr_studio')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'qr_studio'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
                 : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
@@ -95,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => onSelectTab('analytics')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'analytics'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
                 : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
@@ -108,70 +130,94 @@ export const Navbar: React.FC<NavbarProps> = ({
           {currentUser.role === 'admin' && (
             <button
               onClick={() => onSelectTab('clients')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'clients'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
                   : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Empresas & Clientes</span>
+              <span>Empresas</span>
             </button>
           )}
+
+          <button
+            onClick={() => onSelectTab('guide')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'guide'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-950'
+                : 'text-slate-300 hover:text-white hover:bg-[#12213d]'
+            }`}
+          >
+            <HelpCircle className="w-4 h-4 text-blue-400" />
+            <span>Passo a Passo</span>
+          </button>
         </nav>
 
         {/* Zone 3: Profile Switcher & Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Profile Switcher */}
-          <div className="flex items-center gap-1.5 bg-[#0b1528] border border-[#1b2f52] rounded-2xl px-3 py-1.5 text-xs shadow-inner">
-            <span className="text-slate-400 text-[11px] font-medium hidden sm:inline">Perfil:</span>
-            <select
-              value={currentUser.id}
-              onChange={(e) => onSwitchUser(e.target.value)}
-              className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer max-w-[120px] sm:max-w-[160px] truncate"
-              title="Trocar perfil de acesso (Administrador ou Loja/Cliente)"
-            >
-              {users.map((u) => (
-                <option key={u.id} value={u.id} className="bg-[#0b1528] text-white">
-                  {u.role === 'admin' ? '🛡️ Admin GoldFlow' : `🏢 ${u.companyName || u.fullName}${u.fullName && u.fullName !== u.companyName ? ` (${u.fullName})` : ''}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Quick Add Button */}
           <button
             onClick={onOpenNewPlaqueModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-950 hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-950 hover:scale-[1.02] active:scale-[0.98]"
             title="Criar nova placa inteligente NFC"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nova Placa</span>
           </button>
 
-          {/* Simulate NFC Touch */}
-          <button
-            onClick={onOpenNfcSimulator}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#0b1528] hover:bg-[#12213d] text-slate-200 border border-[#1b2f52] text-xs font-bold transition-all shadow-sm"
-            title="Simular aproximação física do celular no balcão"
-          >
-            <Smartphone className="w-4 h-4 text-blue-400" />
-            <span className="hidden md:inline">Testar Toque</span>
-          </button>
+          {/* Profile Switcher */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#0b1528] border border-[#1b2f52] rounded-2xl px-2.5 py-1.5 text-xs shadow-inner">
+            <select
+              value={currentUser.id}
+              onChange={(e) => onSwitchUser(e.target.value)}
+              className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer max-w-[110px] truncate"
+              title="Filtrar placas por cliente"
+            >
+              {users.map((u) => (
+                <option key={u.id} value={u.id} className="bg-[#0b1528] text-white">
+                  {u.role === 'admin' ? '🛡️ Admin' : `🏢 ${u.companyName || u.fullName}`}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Supabase Status */}
+          {/* Supabase Status Button */}
           <button
             onClick={onOpenSupabaseModal}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-all border ${
+            className={`flex items-center gap-1.5 px-2.5 py-2 rounded-2xl text-xs font-bold transition-all border ${
               isSupabaseConnected
                 ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80 hover:bg-emerald-900/80'
                 : 'bg-[#0b1528] text-blue-300 border-[#1b2f52] hover:bg-[#12213d]'
             }`}
-            title="Configurar credenciais Supabase e visualizar SQL com RLS"
+            title="Configurar Supabase e SQL RLS"
           >
             <Database className="w-4 h-4 text-blue-400" />
-            <span className="hidden xl:inline">{isSupabaseConnected ? 'Supabase Conectado' : 'Supabase SQL'}</span>
+            <span className="hidden xl:inline">{isSupabaseConnected ? 'Conectado' : 'Supabase SQL'}</span>
           </button>
+
+          {/* View Public Website */}
+          {onViewPublicSite && (
+            <button
+              onClick={onViewPublicSite}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-[#0b1528] hover:bg-[#12213d] text-slate-300 hover:text-white border border-[#1b2f52] text-xs font-bold transition-all"
+              title="Visualizar o site público visto pelos visitantes"
+            >
+              <Globe className="w-4 h-4 text-blue-400" />
+              <span className="hidden md:inline">Ver Site</span>
+            </button>
+          )}
+
+          {/* Logout Button */}
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="p-2 rounded-2xl bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-900/60 transition-colors"
+              title="Encerrar sessão de administrador (Logout)"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </header>

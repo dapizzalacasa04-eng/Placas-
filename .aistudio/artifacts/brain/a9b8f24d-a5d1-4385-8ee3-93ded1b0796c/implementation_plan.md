@@ -329,3 +329,30 @@ A função de troca de destino de cada placa pelo painel administrativo foi tota
   - Sincronização bidirecional resiliente em `fetchUsers`: mescla os registros remotos com os locais e preserva as empresas criadas, eliminando o problema de empresas desaparecendo após recarregar a página (`F5`).
   - Rastreamento de exclusão por tombstone (`goldflow_deleted_users_v2`) para que exclusões permaneçam permanentes.
   - Script SQL atualizado com remoção de restrições de chave estrangeira legadas (`profiles_id_fkey`), colunas flexibilizadas para evitar erros de `NOT NULL`, e políticas RLS liberadas para `anon` e `authenticated`.
+
+---
+
+## 8. Painel Administrativo Privado e Autenticação Supabase Auth
+
+1. **Rota Administrativa Não Divulgada (Sem Links Públicos)**:
+   - A página pública principal (`/`) exibe unicamente a vitrine de produtos, preços, especificações técnicas e simulador de leitura de QR Code.
+   - **Zero** botões, links de login ou indicações de painel administrativo para visitantes comuns.
+   - O acesso restrito do proprietário ocorre exclusivamente através de rotas não divulgadas:
+     - `/gestao-privada-goldflow`
+     - `/painel-restrito`
+     - `/#/gestao-privada-goldflow`
+     - `/?admin=gestao-privada-goldflow`
+2. **Autenticação Real via Supabase Auth**:
+   - Autenticação por e-mail e senha utilizando o SDK oficial `@supabase/supabase-js`.
+   - Nenhuma senha fixa no código-fonte.
+   - Suporte completo a login, criação de conta e recuperação de senha.
+   - Sessão persistida em tokens JWT e sincronizada em tempo real.
+3. **Gestão de Produtos e Preços (Exclusivo do Proprietário)**:
+   - Criação, edição, precificação (preço atual e riscado), ativação/desativação e exclusão de modelos de placas e totens.
+   - Edição de configurações da loja (WhatsApp de atendimento, prazo de entrega, garantias).
+4. **Políticas RLS Rigorosas no PostgreSQL**:
+   - `SELECT` público liberado para `products`, `plaques`, `app_settings` e `profiles` (para que o catálogo público e os QR Codes físicos continuem funcionando para qualquer visitante).
+   - `INSERT`, `UPDATE` e `DELETE` restritos a `auth.role() = 'authenticated'` (apenas o proprietário autenticado).
+   - Inserção de acessos (`scans`) liberada para anon (telemetria de leitura de QR Code).
+   - Chave `service_role` **nunca** exposta no frontend; apenas `anonKey` com tokens de sessão do usuário.
+
